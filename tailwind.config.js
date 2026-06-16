@@ -1,0 +1,114 @@
+/** @type {import('tailwindcss').Config} */
+
+export default {
+  darkMode: "class",
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    container: {
+      center: true,
+      padding: "1rem",
+      screens: {
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1200px",
+      },
+    },
+    extend: {
+      colors: {
+        coffee: {
+          50: "#FBF7F2",
+          100: "#F5EDE3",
+          200: "#E8D7C3",
+          300: "#D7BC9D",
+          400: "#C49D75",
+          500: "#A67C52",
+          600: "#8B6340",
+          700: "#6F4E37",
+          800: "#5A3F2D",
+          900: "#4A3325",
+          950: "#2D1E16",
+        },
+        cream: {
+          50: "#FFFDF8",
+          100: "#FFF8E7",
+          200: "#FFEFCC",
+          300: "#FFE4A8",
+        },
+        matcha: {
+          50: "#F4F8EC",
+          100: "#E5EFD1",
+          200: "#CCDFA3",
+          300: "#A8C96E",
+          400: "#88B04B",
+          500: "#6E9238",
+          600: "#56722C",
+        },
+        amber: {
+          50: "#FFF8E6",
+          100: "#FFEDC2",
+          200: "#FFD980",
+          300: "#FFC24D",
+          400: "#FFA726",
+          500: "#E67E22",
+          600: "#D35400",
+        },
+        danger: {
+          50: "#FDF0EF",
+          100: "#FADAD8",
+          200: "#F5B5B0",
+          300: "#E8857D",
+          400: "#DC5C52",
+          500: "#C0392B",
+          600: "#A93226",
+        },
+      },
+      fontFamily: {
+        display: ['"Poppins"', '"Noto Sans SC"', "system-ui", "sans-serif"],
+        body: ['"Inter"', '"Noto Sans SC"', "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        soft: "0 4px 20px -2px rgba(111, 78, 55, 0.1)",
+        medium: "0 8px 30px -4px rgba(111, 78, 55, 0.15)",
+        large: "0 16px 48px -8px rgba(111, 78, 55, 0.2)",
+        inner: "inset 0 2px 4px 0 rgba(111, 78, 55, 0.06)",
+      },
+      borderRadius: {
+        xl: "1rem",
+        "2xl": "1.5rem",
+        "3xl": "2rem",
+      },
+      animation: {
+        "fade-in": "fadeIn 0.5s ease-out",
+        "slide-up": "slideUp 0.4s ease-out",
+        "slide-down": "slideDown 0.3s ease-out",
+        "pulse-soft": "pulseSoft 2s ease-in-out infinite",
+        "bounce-subtle": "bounceSubtle 0.6s ease-out",
+      },
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        slideUp: {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        slideDown: {
+          "0%": { opacity: "0", transform: "translateY(-10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        pulseSoft: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
+        bounceSubtle: {
+          "0%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.05)" },
+          "100%": { transform: "scale(1)" },
+        },
+      },
+    },
+  },
+  plugins: [],
+};
