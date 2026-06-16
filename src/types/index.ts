@@ -148,6 +148,32 @@ export interface VoteSuggestion {
   restockRequestId?: string;
 }
 
+export type GroupPurchaseStatus = "active" | "closed" | "settled";
+
+export interface GroupPurchaseParticipantItem {
+  materialId: string;
+  quantity: number;
+}
+
+export interface GroupPurchaseParticipant {
+  userId: string;
+  items: GroupPurchaseParticipantItem[];
+  joinedAt: string;
+}
+
+export interface GroupPurchase {
+  id: string;
+  creatorId: string;
+  materialIds: string[];
+  participants: GroupPurchaseParticipant[];
+  deadline: string;
+  status: GroupPurchaseStatus;
+  shareCode: string;
+  createdAt: string;
+  closedAt?: string;
+  settledAt?: string;
+}
+
 export interface UserStats {
   userId: string;
   totalConsumptions: number;

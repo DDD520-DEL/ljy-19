@@ -9,6 +9,7 @@ import {
   User,
   Coffee,
   ClipboardCheck,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
@@ -32,6 +33,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     ...(isAdmin || pendingCount > 0
       ? [{ path: "/restock-approval", label: "补货审批", icon: ClipboardCheck, badge: pendingCount }]
       : []),
+    { path: "/group-purchase", label: "团队拼单", icon: Users },
     { path: "/vote", label: "我想喝什么", icon: Vote },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },

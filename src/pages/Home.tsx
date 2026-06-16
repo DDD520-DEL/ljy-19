@@ -9,7 +9,8 @@ import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
-import { categoryLabels, type MaterialCategory } from "@/types";
+import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
+import { type MaterialCategory } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
 
@@ -31,6 +32,7 @@ export default function Home() {
   const { currentUser } = useUserStore();
   const { addConsumption, getUserStats, getMonthlyStats } = useConsumptionStore();
   const { getUserBudgetInfo, checkCanConsume } = useBudgetStore();
+  const { getLockedQuantityForMaterial } = useGroupPurchaseStore();
 
   const filteredMaterials = activeCategory === "all"
     ? materials
@@ -54,14 +56,19 @@ export default function Home() {
 
     const budgetCheck = checkCanConsume(currentUser.id, materialId, quantity);
     if (!budgetCheck.canConsume) {
-      const material = materials.find((m) => m.id === materialId);
       showToast(`剩余额度不足！本次需 ${formatCurrency(budgetCheck.cost)}，剩余 ${formatCurrency(budgetCheck.remaining)}`, "error");
       return;
     }
 
     const usableStock = getUsableStock(materialId);
-    if (usableStock < quantity) {
-      showToast("可用库存不足（扣除过期批次后），请联系采购负责人补货", "error");
+    const lockedQty = getLockedQuantityForMaterial(materialId);
+    const availableStock = usableStock - lockedQty;
+    if (availableStock < quantity) {
+      if (lockedQty > 0) {
+        showToast(`可用库存不足（拼单锁定 ${lockedQty}，实际可用 ${availableStock}）`, "error");
+      } else {
+        showToast("可用库存不足（扣除过期批次后），请联系采购负责人补货", "error");
+      }
       return;
     }
 

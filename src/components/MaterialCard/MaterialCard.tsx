@@ -2,8 +2,9 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Material } from "@/types";
 import { getStockStatus, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
-import { Plus, Minus, AlertTriangle, AlertOctagon } from "lucide-react";
+import { Plus, AlertTriangle, AlertOctagon, Lock } from "lucide-react";
 import { useMaterialStore } from "@/store/useMaterialStore";
+import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
 
 interface MaterialCardProps {
   material: Material;
@@ -19,8 +20,11 @@ export default function MaterialCard({
   className,
 }: MaterialCardProps) {
   const { getUsableStock, getExpiringSoonBatches, getExpiredBatches } = useMaterialStore();
+  const { getLockedQuantityForMaterial } = useGroupPurchaseStore();
 
   const usableStock = getUsableStock(material.id);
+  const lockedQty = getLockedQuantityForMaterial(material.id);
+  const availableStock = Math.max(0, usableStock - lockedQty);
   const stockStatus = getStockStatus(usableStock, material.threshold);
   const stockPercentage = Math.min((usableStock / (material.threshold * 3)) * 100, 100);
 
@@ -130,6 +134,12 @@ export default function MaterialCard({
             <span className={cn("text-sm font-bold", statusTextColors[stockStatus])}>
               {usableStock} {material.unit}
             </span>
+            {lockedQty > 0 && (
+              <div className="flex items-center gap-1 justify-end">
+                <Lock className="w-3 h-3 text-amber-500" />
+                <span className="text-xs text-amber-500">拼单锁定 {lockedQty}{material.unit}</span>
+              </div>
+            )}
             {material.stock > usableStock && (
               <p className="text-xs text-gray-400">
                 (含过期 {material.stock - usableStock}{material.unit})
@@ -155,10 +165,10 @@ export default function MaterialCard({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onConsume(1)}
-            disabled={usableStock < 1}
+            disabled={availableStock < 1}
             className={cn(
               "flex-1 py-2.5 rounded-xl font-medium text-sm transition-all duration-200",
-              usableStock >= 1
+              availableStock >= 1
                 ? "bg-coffee-700 text-white hover:bg-coffee-800 active:scale-95"
                 : "bg-coffee-100 text-coffee-300 cursor-not-allowed"
             )}
@@ -167,10 +177,10 @@ export default function MaterialCard({
           </button>
           <button
             onClick={() => onConsume(1)}
-            disabled={usableStock < 1}
+            disabled={availableStock < 1}
             className={cn(
               "p-2.5 rounded-xl transition-colors",
-              usableStock >= 1
+              availableStock >= 1
                 ? "bg-cream-100 text-coffee-600 hover:bg-cream-200"
                 : "bg-coffee-50 text-coffee-300 cursor-not-allowed"
             )}
