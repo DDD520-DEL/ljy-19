@@ -8,6 +8,7 @@ import { useMaterialStore } from "@/store/useMaterialStore";
 import { useConsumptionStore, setMaterialsCache, setUsersCache } from "@/store/useConsumptionStore";
 import { useVoteStore } from "@/store/useVoteStore";
 import { useDutyStore } from "@/store/useDutyStore";
+import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,6 +18,7 @@ export default function Layout() {
   const { initConsumptions } = useConsumptionStore();
   const { initVote } = useVoteStore();
   const { initDuty } = useDutyStore();
+  const { initRequests } = useRestockRequestStore();
 
   useEffect(() => {
     initUsers();
@@ -24,6 +26,7 @@ export default function Layout() {
     initConsumptions();
     initVote();
     initDuty();
+    initRequests();
   }, []);
 
   useEffect(() => {

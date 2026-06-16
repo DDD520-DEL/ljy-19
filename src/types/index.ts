@@ -74,6 +74,23 @@ export interface DutySchedule {
 
 export type StockStatus = "sufficient" | "low" | "critical";
 
+export type RestockRequestStatus = "pending" | "approved" | "rejected";
+
+export interface RestockRequest {
+  id: string;
+  materialId: string;
+  quantity: number;
+  estimatedCost: number;
+  applicantId: string;
+  reason: string;
+  status: RestockRequestStatus;
+  createdAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  approverId?: string;
+  rejectReason?: string;
+}
+
 export interface UserStats {
   userId: string;
   totalConsumptions: number;

@@ -1,10 +1,21 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, Plus, AlertTriangle, TrendingUp, Settings } from "lucide-react";
+import {
+  Package,
+  Plus,
+  AlertTriangle,
+  TrendingUp,
+  Settings,
+  Clock,
+  ClipboardCheck,
+  FileText,
+} from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { categoryLabels, type MaterialCategory, type Material } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStockStatus, timeAgo } from "@/utils/date";
@@ -18,11 +29,15 @@ const categoryTabs: { key: MaterialCategory | "all"; label: string; icon: string
 ];
 
 export default function Inventory() {
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | "all">("all");
   const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [restockQuantity, setRestockQuantity] = useState("");
   const [restockCost, setRestockCost] = useState("");
+  const [requestQuantity, setRequestQuantity] = useState("");
+  const [requestReason, setRequestReason] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<ToastType>("success");
@@ -31,6 +46,10 @@ export default function Inventory() {
   const { materials, restocks, restockMaterial, getLowStockMaterials, updateThreshold } =
     useMaterialStore();
   const { currentUser } = useUserStore();
+  const { submitRequest, getPendingCount, requests } = useRestockRequestStore();
+
+  const isAdmin = currentUser?.role === "admin";
+  const pendingCount = getPendingCount();
 
   const filteredMaterials =
     activeCategory === "all"
@@ -38,6 +57,10 @@ export default function Inventory() {
       : materials.filter((m) => m.category === activeCategory);
 
   const lowStockMaterials = getLowStockMaterials();
+
+  const getPendingRequestsForMaterial = (materialId: string) => {
+    return requests.filter((r) => r.materialId === materialId && r.status === "pending");
+  };
 
   const showToast = (message: string, type: ToastType = "success") => {
     setToastMessage(message);
@@ -50,6 +73,13 @@ export default function Inventory() {
     setRestockQuantity("");
     setRestockCost(String(material.unitPrice * 10));
     setRestockModalOpen(true);
+  };
+
+  const openRequestModal = (material: Material) => {
+    setSelectedMaterial(material);
+    setRequestQuantity("");
+    setRequestReason("");
+    setRequestModalOpen(true);
   };
 
   const handleRestock = () => {
@@ -66,6 +96,35 @@ export default function Inventory() {
     restockMaterial(selectedMaterial.id, quantity, currentUser.id, cost);
     showToast(`补货成功！${selectedMaterial.name} +${quantity}${selectedMaterial.unit}`, "success");
     setRestockModalOpen(false);
+  };
+
+  const handleSubmitRequest = () => {
+    if (!selectedMaterial || !currentUser) return;
+
+    const quantity = parseInt(requestQuantity);
+
+    if (isNaN(quantity) || quantity <= 0) {
+      showToast("请输入有效的补货数量", "error");
+      return;
+    }
+
+    if (!requestReason.trim()) {
+      showToast("请填写申请理由", "error");
+      return;
+    }
+
+    const estimatedCost = quantity * selectedMaterial.unitPrice;
+
+    submitRequest(
+      selectedMaterial.id,
+      quantity,
+      estimatedCost,
+      currentUser.id,
+      requestReason.trim()
+    );
+
+    showToast("已提交补货申请，等待管理员审批", "success");
+    setRequestModalOpen(false);
   };
 
   const handleThresholdChange = (materialId: string, threshold: number) => {
@@ -92,18 +151,34 @@ export default function Inventory() {
         onClose={() => setToastVisible(false)}
       />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-coffee-800">库存管理</h1>
-          <p className="text-coffee-500 text-sm mt-1">管理所有物料的库存和补货</p>
+          <p className="text-coffee-500 text-sm mt-1">
+            {isAdmin ? "管理所有物料的库存和补货" : "查看库存和提交补货申请"}
+          </p>
         </div>
-        <button
-          onClick={() => setShowHistory(!showHistory)}
-          className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-soft text-coffee-600 hover:bg-coffee-50 transition-colors"
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span className="text-sm font-medium">补货记录</span>
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => navigate("/restock-approval")}
+            className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-soft text-coffee-600 hover:bg-coffee-50 transition-colors relative"
+          >
+            <ClipboardCheck className="w-4 h-4" />
+            <span className="text-sm font-medium">补货审批</span>
+            {pendingCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-danger-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              {pendingCount > 99 ? "99+" : pendingCount}
+            </span>
+            )}
+          </button>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-soft text-coffee-600 hover:bg-coffee-50 transition-colors"
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span className="text-sm font-medium">补货记录</span>
+          </button>
+        </div>
       </div>
 
       {lowStockMaterials.length > 0 && (
@@ -187,6 +262,7 @@ export default function Inventory() {
                 <tbody>
                   {filteredMaterials.map((material, index) => {
                     const status = getStatusBadge(material.stock, material.threshold);
+                    const pendingRequests = getPendingRequestsForMaterial(material.id);
                     return (
                       <motion.tr
                         key={material.id}
@@ -206,6 +282,12 @@ export default function Inventory() {
                             <div>
                               <p className="font-medium text-coffee-800">{material.name}</p>
                               <p className="text-xs text-coffee-400">{material.description}</p>
+                              {pendingRequests.length > 0 && (
+                                <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                                  <Clock className="w-3 h-3 inline" />
+                                  {pendingRequests.length} 条待审批
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -243,13 +325,23 @@ export default function Inventory() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => openRestockModal(material)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-matcha-400 text-white text-sm font-medium rounded-lg hover:bg-matcha-500 transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                            补货
-                          </button>
+                          {isAdmin ? (
+                            <button
+                              onClick={() => openRestockModal(material)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-matcha-400 text-white text-sm font-medium rounded-lg hover:bg-matcha-500 transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                              补货
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openRequestModal(material)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-coffee-500 text-white text-sm font-medium rounded-lg hover:bg-coffee-600 transition-colors"
+                            >
+                              <FileText className="w-4 h-4" />
+                              申请补货
+                            </button>
+                          )}
                         </td>
                       </motion.tr>
                     );
@@ -371,6 +463,76 @@ export default function Inventory() {
           </div>
         )}
       </Modal>
+
+      <Modal
+        isOpen={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        title={`申请补货 - ${selectedMaterial?.name}`}
+      >
+        {selectedMaterial && (
+          <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-coffee-50 rounded-xl">
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl"
+              style={{ backgroundColor: selectedMaterial.color + "30" }}
+            >
+              {selectedMaterial.icon}
+            </div>
+            <div>
+              <h4 className="font-bold text-coffee-800">{selectedMaterial.name}</h4>
+              <p className="text-sm text-coffee-500">
+                当前库存：{selectedMaterial.stock} {selectedMaterial.unit}
+              </p>
+              <p className="text-sm text-coffee-500">
+                单价：{formatCurrency(selectedMaterial.unitPrice)}/{selectedMaterial.unit}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-coffee-700 mb-2">
+              补货数量
+            </label>
+            <input
+              type="number"
+              value={requestQuantity}
+              onChange={(e) => setRequestQuantity(e.target.value)}
+              placeholder="输入需要补货的数量"
+              className="input-field"
+              autoFocus
+            />
+            {requestQuantity && !isNaN(parseInt(requestQuantity)) && (
+              <p className="text-xs text-coffee-500 mt-1">
+                预估费用：{formatCurrency(parseInt(requestQuantity) * selectedMaterial.unitPrice)}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-coffee-700 mb-2">
+              申请理由 <span className="text-danger-500">*</span>
+            </label>
+            <textarea
+              value={requestReason}
+              onChange={(e) => setRequestReason(e.target.value)}
+              placeholder="请说明申请补货的原因，如：库存不足、同事需求大等"
+              rows={3}
+              className="w-full px-4 py-3 bg-cream-50 border border-coffee-200 rounded-xl text-coffee-800 placeholder-coffee-300 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent resize-none"
+            />
+          </div>
+
+          <div className="pt-2 space-y-2">
+            <button onClick={handleSubmitRequest} className="w-full btn-primary">
+              提交申请
+            </button>
+            <p className="text-xs text-coffee-400 text-center">
+              提交后需管理员审批通过后才会生效
+            </p>
+          </div>
+        </div>
+      )}
+    </Modal>
     </div>
   );
 }
+

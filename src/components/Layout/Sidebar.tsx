@@ -8,17 +8,11 @@ import {
   Calendar,
   User,
   Coffee,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { path: "/", label: "首页", icon: Home },
-  { path: "/inventory", label: "库存管理", icon: Package },
-  { path: "/vote", label: "我想喝什么", icon: Vote },
-  { path: "/stats", label: "消耗统计", icon: BarChart3 },
-  { path: "/duty", label: "采购轮值", icon: Calendar },
-  { path: "/profile", label: "个人中心", icon: User },
-];
+import { useRestockRequestStore } from "@/store/useRestockRequestStore";
+import { useUserStore } from "@/store/useUserStore";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -27,6 +21,22 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
+  const { getPendingCount } = useRestockRequestStore();
+  const { currentUser } = useUserStore();
+  const pendingCount = getPendingCount();
+  const isAdmin = currentUser?.role === "admin";
+
+  const navItems = [
+    { path: "/", label: "首页", icon: Home },
+    { path: "/inventory", label: "库存管理", icon: Package },
+    ...(isAdmin || pendingCount > 0
+      ? [{ path: "/restock-approval", label: "补货审批", icon: ClipboardCheck, badge: pendingCount }]
+      : []),
+    { path: "/vote", label: "我想喝什么", icon: Vote },
+    { path: "/stats", label: "消耗统计", icon: BarChart3 },
+    { path: "/duty", label: "采购轮值", icon: Calendar },
+    { path: "/profile", label: "个人中心", icon: User },
+  ];
 
   return (
     <>
@@ -82,7 +92,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   >
                     <Icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
-                    {isActive && (
+                    {"badge" in item && item.badge > 0 && (
+                      <span
+                        className={cn(
+                          "ml-auto px-2 py-0.5 text-xs font-bold rounded-full",
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-danger-500 text-white"
+                        )}
+                      >
+                        {item.badge > 99 ? "99+" : item.badge}
+                      </span>
+                    )}
+                    {isActive && !("badge" in item && item.badge > 0) && (
                       <motion.span
                         layoutId="activeIndicator"
                         className="ml-auto w-1.5 h-1.5 rounded-full bg-white"

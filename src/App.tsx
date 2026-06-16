@@ -6,6 +6,7 @@ import Vote from "@/pages/Vote";
 import Stats from "@/pages/Stats";
 import Duty from "@/pages/Duty";
 import Profile from "@/pages/Profile";
+import RestockApproval from "@/pages/RestockApproval";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="inventory" element={<Inventory />} />
+          <Route path="restock-approval" element={<RestockApproval />} />
           <Route path="vote" element={<Vote />} />
           <Route path="stats" element={<Stats />} />
           <Route path="duty" element={<Duty />} />
