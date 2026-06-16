@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { UserMonthlyBudget, UserBudgetInfo, Material, User, Consumption } from "../types";
 import { mockMonthlyBudgets, mockUsers, mockMaterials } from "../data/mockData";
 import { storage } from "../utils/storage";
-import { generateId, getStartOfMonth, getEndOfMonth } from "../utils/date";
+import { generateId, isSameMonth } from "../utils/date";
 
 let materialsCache: Material[] = mockMaterials;
 let usersCache: User[] = mockUsers;
@@ -90,13 +90,11 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
 
   getUserBudgetInfo: (userId: string, date: Date = new Date()) => {
     const totalBudget = get().getUserBudget(userId, date);
-    const startOfMonth = getStartOfMonth(date);
-    const endOfMonth = getEndOfMonth(date);
 
     const consumptions = consumptionsCache.filter((c) => {
       if (c.userId !== userId) return false;
       const d = new Date(c.timestamp);
-      return d >= startOfMonth && d <= endOfMonth;
+      return isSameMonth(d, date);
     });
 
     const materials = materialsCache;
