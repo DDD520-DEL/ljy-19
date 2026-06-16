@@ -3,6 +3,7 @@ import type { Consumption, MaterialCategory, UserStats, MonthlyStats, Material, 
 import { mockConsumptions, mockMaterials, mockUsers } from "../data/mockData";
 import { storage } from "../utils/storage";
 import { generateId, isSameMonth, getStartOfMonth, getEndOfMonth } from "../utils/date";
+import { setBudgetConsumptionsCache } from "./useBudgetStore";
 
 let materialsCache: Material[] = mockMaterials;
 let usersCache: User[] = mockUsers;
@@ -42,6 +43,7 @@ export const useConsumptionStore = create<ConsumptionState>((set, get) => ({
     const updated = [newConsumption, ...get().consumptions];
     set({ consumptions: updated });
     storage.set("consumptions", updated);
+    setBudgetConsumptionsCache(updated);
   },
 
   getUserConsumptions: (userId: string) => {
@@ -175,7 +177,9 @@ export const useConsumptionStore = create<ConsumptionState>((set, get) => ({
 
   initConsumptions: () => {
     const saved = storage.get<Consumption[] | null>("consumptions", null);
-    set({ consumptions: saved || mockConsumptions });
+    const data = saved || mockConsumptions;
+    set({ consumptions: data });
+    setBudgetConsumptionsCache(data);
     if (!saved) {
       storage.set("consumptions", mockConsumptions);
     }

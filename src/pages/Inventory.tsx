@@ -10,13 +10,16 @@ import {
   Clock,
   ClipboardCheck,
   FileText,
+  Users,
+  Wallet,
 } from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
-import { categoryLabels, type MaterialCategory, type Material } from "@/types";
+import { useBudgetStore } from "@/store/useBudgetStore";
+import { categoryLabels, type MaterialCategory, type Material, type User } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStockStatus, timeAgo } from "@/utils/date";
 
@@ -33,20 +36,25 @@ export default function Inventory() {
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | "all">("all");
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [selectedUserForBudget, setSelectedUserForBudget] = useState<User | null>(null);
   const [restockQuantity, setRestockQuantity] = useState("");
   const [restockCost, setRestockCost] = useState("");
   const [requestQuantity, setRequestQuantity] = useState("");
   const [requestReason, setRequestReason] = useState("");
+  const [newBudgetAmount, setNewBudgetAmount] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<ToastType>("success");
   const [showHistory, setShowHistory] = useState(false);
+  const [showBudgetManagement, setShowBudgetManagement] = useState(false);
 
   const { materials, restocks, restockMaterial, getLowStockMaterials, updateThreshold } =
     useMaterialStore();
-  const { currentUser } = useUserStore();
+  const { currentUser, users } = useUserStore();
   const { submitRequest, getPendingCount, requests } = useRestockRequestStore();
+  const { setUserBudget, getAllUserBudgetInfos } = useBudgetStore();
 
   const isAdmin = currentUser?.role === "admin";
   const pendingCount = getPendingCount();
@@ -132,6 +140,28 @@ export default function Inventory() {
     showToast("阈值已更新", "success");
   };
 
+  const openBudgetModal = (user: User) => {
+    setSelectedUserForBudget(user);
+    setNewBudgetAmount(String(user.monthlyBudget));
+    setBudgetModalOpen(true);
+  };
+
+  const handleSetBudget = () => {
+    if (!selectedUserForBudget) return;
+
+    const budget = parseFloat(newBudgetAmount);
+    if (isNaN(budget) || budget < 0) {
+      showToast("请输入有效的预算金额", "error");
+      return;
+    }
+
+    setUserBudget(selectedUserForBudget.id, budget);
+    showToast(`已为 ${selectedUserForBudget.name} 设置月度预算 ${formatCurrency(budget)}`, "success");
+    setBudgetModalOpen(false);
+  };
+
+  const allUserBudgetInfos = getAllUserBudgetInfos();
+
   const getStatusBadge = (stock: number, threshold: number) => {
     const status = getStockStatus(stock, threshold);
     const config = {
@@ -171,9 +201,34 @@ export default function Inventory() {
             </span>
             )}
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setShowBudgetManagement(!showBudgetManagement);
+                setShowHistory(false);
+              }}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl shadow-soft transition-colors",
+                showBudgetManagement
+                  ? "bg-coffee-700 text-white"
+                  : "bg-white text-coffee-600 hover:bg-coffee-50"
+              )}
+            >
+              <Wallet className="w-4 h-4" />
+              <span className="text-sm font-medium">用户额度管理</span>
+            </button>
+          )}
           <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-soft text-coffee-600 hover:bg-coffee-50 transition-colors"
+            onClick={() => {
+              setShowHistory(!showHistory);
+              setShowBudgetManagement(false);
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl shadow-soft transition-colors",
+              showHistory
+                ? "bg-coffee-700 text-white"
+                : "bg-white text-coffee-600 hover:bg-coffee-50"
+            )}
           >
             <TrendingUp className="w-4 h-4" />
             <span className="text-sm font-medium">补货记录</span>
@@ -224,7 +279,108 @@ export default function Inventory() {
       </div>
 
       <AnimatePresence mode="wait">
-        {!showHistory ? (
+        {showBudgetManagement ? (
+          <motion.div
+            key="budget"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="bg-white rounded-2xl shadow-soft overflow-hidden"
+          >
+            <div className="px-6 py-4 border-b border-coffee-100">
+              <h3 className="font-bold text-coffee-800">用户月度额度管理</h3>
+              <p className="text-sm text-coffee-500 mt-1">为不同用户设置个性化的月度消费预算</p>
+            </div>
+            <div className="divide-y divide-coffee-50">
+              {allUserBudgetInfos.map((budgetInfo, index) => {
+                const user = users.find((u) => u.id === budgetInfo.userId);
+                if (!user) return null;
+
+                return (
+                  <motion.div
+                    key={budgetInfo.userId}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="px-6 py-4 flex items-center justify-between hover:bg-coffee-50/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        {user.avatar ? (
+                          <img
+                            src={user.avatar}
+                            alt={user.name}
+                            className="w-12 h-12 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-coffee-100 flex items-center justify-center">
+                            <Users className="w-6 h-6 text-coffee-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-coffee-800">{user.name}</p>
+                          <span className={cn(
+                            "text-xs px-2 py-0.5 rounded-full",
+                            user.role === "admin"
+                              ? "bg-coffee-100 text-coffee-600"
+                              : "bg-coffee-50 text-coffee-500"
+                          )}>
+                            {user.role === "admin" ? "管理员" : "普通成员"}
+                          </span>
+                        </div>
+                        <div className="mt-1 w-48">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-coffee-500">本月使用</span>
+                            <span className={cn(
+                              "font-medium",
+                              budgetInfo.usagePercentage >= 90
+                                ? "text-danger-600"
+                                : budgetInfo.usagePercentage >= 70
+                                ? "text-amber-600"
+                                : "text-matcha-600"
+                            )}>
+                              {formatCurrency(budgetInfo.usedAmount)} / {formatCurrency(budgetInfo.totalBudget)}
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-coffee-100 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full",
+                                budgetInfo.usagePercentage >= 90
+                                  ? "bg-danger-500"
+                                  : budgetInfo.usagePercentage >= 70
+                                  ? "bg-amber-500"
+                                  : "bg-matcha-500"
+                              )}
+                              style={{ width: `${Math.min(100, budgetInfo.usagePercentage)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-bold text-coffee-800">
+                          {formatCurrency(budgetInfo.remainingAmount)}
+                        </p>
+                        <p className="text-xs text-coffee-500">剩余额度</p>
+                      </div>
+                      <button
+                        onClick={() => openBudgetModal(user)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-coffee-500 text-white text-sm font-medium rounded-lg hover:bg-coffee-600 transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        设置额度
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : !showHistory ? (
           <motion.div
             key="inventory"
             initial={{ opacity: 0, x: 20 }}
@@ -532,6 +688,83 @@ export default function Inventory() {
         </div>
       )}
     </Modal>
+
+      <Modal
+        isOpen={budgetModalOpen}
+        onClose={() => setBudgetModalOpen(false)}
+        title={`设置月度预算 - ${selectedUserForBudget?.name}`}
+      >
+        {selectedUserForBudget && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-coffee-50 rounded-xl">
+              <div className="relative">
+                {selectedUserForBudget.avatar ? (
+                  <img
+                    src={selectedUserForBudget.avatar}
+                    alt={selectedUserForBudget.name}
+                    className="w-14 h-14 rounded-full"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-coffee-200 flex items-center justify-center">
+                    <Users className="w-7 h-7 text-coffee-600" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <h4 className="font-bold text-coffee-800">{selectedUserForBudget.name}</h4>
+                <p className="text-sm text-coffee-500">
+                  {selectedUserForBudget.role === "admin" ? "管理员" : "普通成员"}
+                </p>
+                <p className="text-sm text-coffee-500">
+                  当前预算：{formatCurrency(selectedUserForBudget.monthlyBudget)}/月
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-coffee-700 mb-2">
+                月度消费预算 (元)
+              </label>
+              <input
+                type="number"
+                value={newBudgetAmount}
+                onChange={(e) => setNewBudgetAmount(e.target.value)}
+                placeholder="输入月度预算金额"
+                className="input-field"
+                autoFocus
+                min="0"
+                step="0.01"
+              />
+              <p className="text-xs text-coffee-500 mt-1">
+                设置为 0 表示不限制消费额度
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              {[100, 200, 300].map((amount) => (
+                <button
+                  key={amount}
+                  onClick={() => setNewBudgetAmount(String(amount))}
+                  className={cn(
+                    "py-2 px-3 rounded-lg text-sm font-medium transition-colors",
+                    newBudgetAmount === String(amount)
+                      ? "bg-coffee-600 text-white"
+                      : "bg-coffee-100 text-coffee-700 hover:bg-coffee-200"
+                  )}
+                >
+                  ¥{amount}
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2">
+              <button onClick={handleSetBudget} className="w-full btn-primary">
+                确认设置
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

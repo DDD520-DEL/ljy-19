@@ -6,6 +6,7 @@ import Header from "./Header";
 import { useUserStore } from "@/store/useUserStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useConsumptionStore, setMaterialsCache, setUsersCache } from "@/store/useConsumptionStore";
+import { useBudgetStore, setBudgetMaterialsCache, setBudgetUsersCache } from "@/store/useBudgetStore";
 import { useVoteStore } from "@/store/useVoteStore";
 import { useDutyStore } from "@/store/useDutyStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
@@ -16,6 +17,7 @@ export default function Layout() {
   const { users, initUsers } = useUserStore();
   const { materials, initMaterials } = useMaterialStore();
   const { initConsumptions } = useConsumptionStore();
+  const { initBudgets } = useBudgetStore();
   const { initVote } = useVoteStore();
   const { initDuty } = useDutyStore();
   const { initRequests } = useRestockRequestStore();
@@ -24,6 +26,7 @@ export default function Layout() {
     initUsers();
     initMaterials();
     initConsumptions();
+    initBudgets();
     initVote();
     initDuty();
     initRequests();
@@ -32,12 +35,14 @@ export default function Layout() {
   useEffect(() => {
     if (materials.length > 0) {
       setMaterialsCache(materials);
+      setBudgetMaterialsCache(materials);
     }
   }, [materials]);
 
   useEffect(() => {
     if (users.length > 0) {
       setUsersCache(users);
+      setBudgetUsersCache(users);
     }
   }, [users]);
 

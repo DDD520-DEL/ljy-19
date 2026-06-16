@@ -5,6 +5,27 @@ export interface User {
   role: "user" | "admin";
   joinDate: string;
   email?: string;
+  monthlyBudget: number;
+}
+
+export interface UserMonthlyBudget {
+  id: string;
+  userId: string;
+  year: number;
+  month: number;
+  budget: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserBudgetInfo {
+  userId: string;
+  totalBudget: number;
+  usedAmount: number;
+  remainingAmount: number;
+  usagePercentage: number;
+  year: number;
+  month: number;
 }
 
 export type MaterialCategory = "coffee" | "tea" | "dairy" | "snack";

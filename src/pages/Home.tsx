@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Coffee, Droplets, Cookie, Sparkles } from "lucide-react";
+import { Coffee, Droplets, Cookie, Sparkles, AlertTriangle } from "lucide-react";
 import MaterialCard from "@/components/MaterialCard/MaterialCard";
 import LowStockAlert from "@/components/LowStockAlert/LowStockAlert";
 import StatsCard from "@/components/StatsCard/StatsCard";
@@ -8,6 +8,7 @@ import Toast, { ToastType } from "@/components/Toast/Toast";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
+import { useBudgetStore } from "@/store/useBudgetStore";
 import { categoryLabels, type MaterialCategory } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/date";
@@ -29,6 +30,7 @@ export default function Home() {
   const { materials, consumeMaterial } = useMaterialStore();
   const { currentUser } = useUserStore();
   const { addConsumption, getUserStats, getMonthlyStats } = useConsumptionStore();
+  const { getUserBudgetInfo, checkCanConsume } = useBudgetStore();
 
   const filteredMaterials = activeCategory === "all"
     ? materials
@@ -36,6 +38,7 @@ export default function Home() {
 
   const userStats = currentUser ? getUserStats(currentUser.id) : null;
   const monthlyStats = getMonthlyStats();
+  const userBudgetInfo = currentUser ? getUserBudgetInfo(currentUser.id) : null;
 
   const showToast = (message: string, type: ToastType = "success") => {
     setToastMessage(message);
@@ -49,11 +52,18 @@ export default function Home() {
       return;
     }
 
+    const budgetCheck = checkCanConsume(currentUser.id, materialId, quantity);
+    if (!budgetCheck.canConsume) {
+      const material = materials.find((m) => m.id === materialId);
+      showToast(`剩余额度不足！本次需 ${formatCurrency(budgetCheck.cost)}，剩余 ${formatCurrency(budgetCheck.remaining)}`, "error");
+      return;
+    }
+
     const success = consumeMaterial(materialId, quantity);
     if (success) {
       addConsumption(currentUser.id, materialId, quantity);
       const material = materials.find((m) => m.id === materialId);
-      showToast(`取用成功！${material?.icon} ${material?.name} x${quantity}`, "success");
+      showToast(`取用成功！${material?.icon} ${material?.name} x${quantity}，消费 ${formatCurrency(budgetCheck.cost)}`, "success");
     } else {
       showToast("库存不足，请联系采购负责人补货", "error");
     }
@@ -84,6 +94,97 @@ export default function Home() {
       />
 
       <LowStockAlert />
+
+      {userBudgetInfo && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            "rounded-2xl p-4 mb-6 shadow-soft",
+            userBudgetInfo.usagePercentage >= 90
+              ? "bg-danger-50 border border-danger-200"
+              : userBudgetInfo.usagePercentage >= 70
+              ? "bg-amber-50 border border-amber-200"
+              : "bg-matcha-50 border border-matcha-200"
+          )}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle
+                className={cn(
+                  "w-5 h-5",
+                  userBudgetInfo.usagePercentage >= 90
+                    ? "text-danger-500"
+                    : userBudgetInfo.usagePercentage >= 70
+                    ? "text-amber-500"
+                    : "text-matcha-500"
+                )}
+              />
+              <span
+                className={cn(
+                  "font-semibold",
+                  userBudgetInfo.usagePercentage >= 90
+                    ? "text-danger-700"
+                    : userBudgetInfo.usagePercentage >= 70
+                    ? "text-amber-700"
+                    : "text-matcha-700"
+                )}
+              >
+                本月消费额度
+              </span>
+            </div>
+            <span
+              className={cn(
+                "text-sm font-medium",
+                userBudgetInfo.usagePercentage >= 90
+                  ? "text-danger-600"
+                  : userBudgetInfo.usagePercentage >= 70
+                  ? "text-amber-600"
+                  : "text-matcha-600"
+              )}
+            >
+              {formatCurrency(userBudgetInfo.usedAmount)} / {formatCurrency(userBudgetInfo.totalBudget)}
+            </span>
+          </div>
+          <div className="h-2 bg-white/60 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${userBudgetInfo.usagePercentage}%` }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className={cn(
+                "h-full rounded-full",
+                userBudgetInfo.usagePercentage >= 90
+                  ? "bg-danger-500"
+                  : userBudgetInfo.usagePercentage >= 70
+                  ? "bg-amber-500"
+                  : "bg-matcha-500"
+              )}
+            />
+          </div>
+          <div className="flex justify-between mt-2 text-xs">
+            <span
+              className={
+                userBudgetInfo.usagePercentage >= 90
+                  ? "text-danger-600"
+                  : userBudgetInfo.usagePercentage >= 70
+                  ? "text-amber-600"
+                  : "text-matcha-600"
+              }
+            >
+              已用 {userBudgetInfo.usagePercentage.toFixed(1)}%
+            </span>
+            <span
+              className={
+                userBudgetInfo.remainingAmount < 10
+                  ? "text-danger-600 font-medium"
+                  : "text-coffee-500"
+              }
+            >
+              剩余 {formatCurrency(userBudgetInfo.remainingAmount)}
+            </span>
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatsCard

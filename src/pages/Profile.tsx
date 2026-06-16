@@ -15,12 +15,15 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Wallet,
+  PiggyBank,
 } from "lucide-react";
 import UserSelector from "@/components/UserSelector/UserSelector";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
+import { useBudgetStore } from "@/store/useBudgetStore";
 import { formatCurrency, timeAgo } from "@/utils/date";
 import { categoryLabels, type MaterialCategory, type RestockRequestStatus } from "@/types";
 import { cn } from "@/lib/utils";
@@ -32,8 +35,10 @@ export default function Profile() {
   const { getUserStats, getMonthlyConsumptions } = useConsumptionStore();
   const { materials } = useMaterialStore();
   const { getRequestsByApplicant } = useRestockRequestStore();
+  const { getUserBudgetInfo } = useBudgetStore();
 
   const userStats = currentUser ? getUserStats(currentUser.id) : null;
+  const userBudgetInfo = currentUser ? getUserBudgetInfo(currentUser.id) : null;
   const monthlyConsumptions = currentUser
     ? getMonthlyConsumptions(currentUser.id).slice(0, 10)
     : [];
@@ -85,11 +90,25 @@ export default function Profile() {
       bg: "bg-matcha-100",
     },
     {
+      icon: Wallet,
+      label: "月度预算",
+      value: formatCurrency(userBudgetInfo?.totalBudget || 0),
+      color: userBudgetInfo?.usagePercentage && userBudgetInfo.usagePercentage >= 90 ? "text-danger-500" : userBudgetInfo?.usagePercentage && userBudgetInfo.usagePercentage >= 70 ? "text-amber-500" : "text-sky-500",
+      bg: userBudgetInfo?.usagePercentage && userBudgetInfo.usagePercentage >= 90 ? "bg-danger-100" : userBudgetInfo?.usagePercentage && userBudgetInfo.usagePercentage >= 70 ? "bg-amber-100" : "bg-sky-100",
+    },
+    {
+      icon: PiggyBank,
+      label: "剩余额度",
+      value: formatCurrency(userBudgetInfo?.remainingAmount || 0),
+      color: userBudgetInfo?.remainingAmount && userBudgetInfo.remainingAmount < 10 ? "text-danger-500" : "text-emerald-500",
+      bg: userBudgetInfo?.remainingAmount && userBudgetInfo.remainingAmount < 10 ? "bg-danger-100" : "bg-emerald-100",
+    },
+    {
       icon: Calendar,
       label: "加入日期",
       value: currentUser?.joinDate || "-",
-      color: "text-sky-500",
-      bg: "bg-sky-100",
+      color: "text-violet-500",
+      bg: "bg-violet-100",
     },
   ];
 
@@ -158,6 +177,42 @@ export default function Profile() {
             <p className="text-xs text-white/70 mt-1">品类数</p>
           </div>
         </div>
+
+        {/* 预算额度 */}
+        {userBudgetInfo && (
+          <div className="mt-6 pt-6 border-t border-white/20">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-white/80 font-medium">本月消费额度</p>
+              <p className="text-sm font-bold">
+                {formatCurrency(userBudgetInfo.usedAmount)} / {formatCurrency(userBudgetInfo.totalBudget)}
+              </p>
+            </div>
+            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${userBudgetInfo.usagePercentage}%` }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className={cn(
+                  "h-full rounded-full",
+                  userBudgetInfo.usagePercentage >= 90
+                    ? "bg-danger-400"
+                    : userBudgetInfo.usagePercentage >= 70
+                    ? "bg-amber-400"
+                    : "bg-matcha-400"
+                )}
+              />
+            </div>
+            <div className="flex justify-between mt-2 text-xs">
+              <span className="text-white/70">已用 {userBudgetInfo.usagePercentage.toFixed(1)}%</span>
+              <span className={cn(
+                "font-medium",
+                userBudgetInfo.remainingAmount < 10 ? "text-danger-300" : "text-white/90"
+              )}>
+                剩余 {formatCurrency(userBudgetInfo.remainingAmount)}
+              </span>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* 菜单列表 */}
@@ -236,7 +291,7 @@ export default function Profile() {
         </div>
       </motion.div>
 
-      {/* 最近取用记录 */}
+      {/* 消费明细 */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -244,7 +299,7 @@ export default function Profile() {
         className="bg-white rounded-2xl shadow-soft overflow-hidden mb-6"
       >
         <div className="px-6 py-4 border-b border-coffee-100 flex items-center justify-between">
-          <h3 className="font-bold text-coffee-800">最近取用</h3>
+          <h3 className="font-bold text-coffee-800">消费明细</h3>
           <button className="text-sm text-coffee-500 hover:text-coffee-700 transition-colors">
             查看全部
           </button>
