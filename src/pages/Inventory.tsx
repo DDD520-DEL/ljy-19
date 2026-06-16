@@ -180,10 +180,9 @@ export default function Inventory() {
       setSelectedSuggestion(suggestion);
       setRequestModalOpen(true);
     } else {
-      setSelectedSuggestion(suggestion);
-      setRequestQuantity(String(suggestion.suggestedQuantity));
-      setRequestReason(`根据投票结果「${suggestion.voteTitle}」，「${suggestion.optionName}」以 ${suggestion.votes} 票胜出，建议补货 ${suggestion.suggestedQuantity} 单位`);
-      setRequestModalOpen(true);
+      setSelectedMaterial(null);
+      setSelectedSuggestion(null);
+      showToast(`未找到与「${suggestion.optionName}」匹配的物料，请先在库存中添加该物料后再申请补货`, "warning");
     }
   };
 
