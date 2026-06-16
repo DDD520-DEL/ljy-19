@@ -15,6 +15,11 @@ import {
   Vote,
   CheckCircle,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  AlertOctagon,
+  X,
 } from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
@@ -24,9 +29,9 @@ import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { useDutyStore } from "@/store/useDutyStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
-import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion } from "@/types";
+import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion, type Batch } from "@/types";
 import { cn } from "@/lib/utils";
-import { formatCurrency, getStockStatus, timeAgo } from "@/utils/date";
+import { formatCurrency, getStockStatus, timeAgo, getBatchExpiryInfo, formatExpiryStatus, formatDate, addDays } from "@/utils/date";
 
 const categoryTabs: { key: MaterialCategory | "all"; label: string; icon: string }[] = [
   { key: "all", label: "全部", icon: "📦" },
@@ -36,6 +41,13 @@ const categoryTabs: { key: MaterialCategory | "all"; label: string; icon: string
   { key: "snack", label: "零食", icon: "🍪" },
 ];
 
+interface RestockBatchInput {
+  id: string;
+  quantity: string;
+  productionDate: string;
+  expiryDate: string;
+}
+
 export default function Inventory() {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | "all">("all");
@@ -44,7 +56,6 @@ export default function Inventory() {
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [selectedUserForBudget, setSelectedUserForBudget] = useState<User | null>(null);
-  const [restockQuantity, setRestockQuantity] = useState("");
   const [restockCost, setRestockCost] = useState("");
   const [requestQuantity, setRequestQuantity] = useState("");
   const [requestReason, setRequestReason] = useState("");
@@ -54,9 +65,20 @@ export default function Inventory() {
   const [toastType, setToastType] = useState<ToastType>("success");
   const [showHistory, setShowHistory] = useState(false);
   const [showBudgetManagement, setShowBudgetManagement] = useState(false);
+  const [expandedMaterials, setExpandedMaterials] = useState<Set<string>>(new Set());
+  const [restockBatches, setRestockBatches] = useState<RestockBatchInput[]>([]);
 
-  const { materials, restocks, restockMaterial, getLowStockMaterials, updateThreshold } =
-    useMaterialStore();
+  const {
+    materials,
+    restocks,
+    restockMaterial,
+    restockMaterialWithBatches,
+    getLowStockMaterials,
+    updateThreshold,
+    getUsableStock,
+    getSortedBatchesByExpiry,
+    getExpiringSoonBatches,
+  } = useMaterialStore();
   const { currentUser, users } = useUserStore();
   const { submitRequest, getPendingCount, requests } = useRestockRequestStore();
   const { setUserBudget, getAllUserBudgetInfos } = useBudgetStore();
@@ -70,6 +92,7 @@ export default function Inventory() {
 
   const isAdmin = currentUser?.role === "admin";
   const pendingCount = getPendingCount();
+  const expiringSoonBatches = getExpiringSoonBatches(7);
 
   const filteredMaterials =
     activeCategory === "all"
@@ -77,6 +100,16 @@ export default function Inventory() {
       : materials.filter((m) => m.category === activeCategory);
 
   const lowStockMaterials = getLowStockMaterials();
+
+  const toggleMaterialExpand = (materialId: string) => {
+    const newExpanded = new Set(expandedMaterials);
+    if (newExpanded.has(materialId)) {
+      newExpanded.delete(materialId);
+    } else {
+      newExpanded.add(materialId);
+    }
+    setExpandedMaterials(newExpanded);
+  };
 
   const getPendingRequestsForMaterial = (materialId: string) => {
     return requests.filter((r) => r.materialId === materialId && r.status === "pending");
@@ -88,11 +121,50 @@ export default function Inventory() {
     setToastVisible(true);
   };
 
+  const createNewBatchInput = (material: Material): RestockBatchInput => {
+    const today = formatDate(new Date(), "YYYY-MM-DD");
+    const defaultShelfLife = material.defaultShelfLifeDays || 90;
+    const defaultExpiry = formatDate(addDays(new Date(), defaultShelfLife), "YYYY-MM-DD");
+    return {
+      id: Math.random().toString(36).substring(2, 11),
+      quantity: "",
+      productionDate: today,
+      expiryDate: defaultExpiry,
+    };
+  };
+
   const openRestockModal = (material: Material) => {
     setSelectedMaterial(material);
-    setRestockQuantity("");
     setRestockCost(String(material.unitPrice * 10));
+    setRestockBatches([createNewBatchInput(material)]);
     setRestockModalOpen(true);
+  };
+
+  const addRestockBatch = () => {
+    if (!selectedMaterial) return;
+    setRestockBatches([...restockBatches, createNewBatchInput(selectedMaterial)]);
+  };
+
+  const removeRestockBatch = (batchId: string) => {
+    if (restockBatches.length <= 1) return;
+    setRestockBatches(restockBatches.filter((b) => b.id !== batchId));
+  };
+
+  const updateRestockBatch = (batchId: string, field: keyof RestockBatchInput, value: string) => {
+    setRestockBatches(
+      restockBatches.map((b) => (b.id === batchId ? { ...b, [field]: value } : b))
+    );
+  };
+
+  const autoCalculateExpiry = (batchId: string) => {
+    if (!selectedMaterial) return;
+    const batch = restockBatches.find((b) => b.id === batchId);
+    if (!batch || !batch.productionDate) return;
+
+    const defaultShelfLife = selectedMaterial.defaultShelfLifeDays || 90;
+    const production = new Date(batch.productionDate);
+    const expiry = formatDate(addDays(production, defaultShelfLife), "YYYY-MM-DD");
+    updateRestockBatch(batchId, "expiryDate", expiry);
   };
 
   const openRequestModal = (material: Material) => {
@@ -105,16 +177,53 @@ export default function Inventory() {
   const handleRestock = () => {
     if (!selectedMaterial || !currentUser) return;
 
-    const quantity = parseInt(restockQuantity);
-    const cost = parseFloat(restockCost);
+    const validBatches = restockBatches
+      .map((b) => ({
+        ...b,
+        qtyNum: parseInt(b.quantity),
+      }))
+      .filter((b) => !isNaN(b.qtyNum) && b.qtyNum > 0);
 
-    if (isNaN(quantity) || quantity <= 0) {
-      showToast("请输入有效的补货数量", "error");
+    if (validBatches.length === 0) {
+      showToast("请至少输入一个有效的批次数量", "error");
       return;
     }
 
-    restockMaterial(selectedMaterial.id, quantity, currentUser.id, cost);
-    showToast(`补货成功！${selectedMaterial.name} +${quantity}${selectedMaterial.unit}`, "success");
+    const invalidDates = validBatches.some(
+      (b) => !b.productionDate || !b.expiryDate || new Date(b.expiryDate) <= new Date(b.productionDate)
+    );
+
+    if (invalidDates) {
+      showToast("请检查批次日期，保质期必须晚于生产日期", "error");
+      return;
+    }
+
+    const cost = parseFloat(restockCost);
+    if (isNaN(cost) || cost < 0) {
+      showToast("请输入有效的总费用", "error");
+      return;
+    }
+
+    const batchesData = validBatches.map((b) => ({
+      quantity: b.qtyNum,
+      productionDate: b.productionDate,
+      expiryDate: b.expiryDate,
+    }));
+
+    if (batchesData.length === 1) {
+      restockMaterial(
+        selectedMaterial.id,
+        batchesData[0].quantity,
+        currentUser.id,
+        cost,
+        { productionDate: batchesData[0].productionDate, expiryDate: batchesData[0].expiryDate }
+      );
+    } else {
+      restockMaterialWithBatches(selectedMaterial.id, currentUser.id, cost, batchesData);
+    }
+
+    const totalQty = batchesData.reduce((sum, b) => sum + b.quantity, 0);
+    showToast(`补货成功！${selectedMaterial.name} +${totalQty}${selectedMaterial.unit}（${batchesData.length}个批次）`, "success");
     setRestockModalOpen(false);
 
     if (selectedSuggestion) {
@@ -193,7 +302,12 @@ export default function Inventory() {
 
     if (matchingMaterial) {
       setSelectedMaterial(matchingMaterial);
-      setRestockQuantity(String(suggestion.suggestedQuantity));
+      setRestockBatches([
+        {
+          ...createNewBatchInput(matchingMaterial),
+          quantity: String(suggestion.suggestedQuantity),
+        },
+      ]);
       setRestockCost(String(matchingMaterial.unitPrice * suggestion.suggestedQuantity));
       setSelectedSuggestion(suggestion);
       setRestockModalOpen(true);
@@ -226,6 +340,26 @@ export default function Inventory() {
       critical: { label: "不足", className: "bg-danger-100 text-danger-500" },
     };
     return config[status];
+  };
+
+  const getBatchExpiryStyles = (status: string) => {
+    switch (status) {
+      case "expired":
+        return {
+          badge: "bg-gray-200 text-gray-500",
+          row: "bg-gray-50 opacity-60",
+        };
+      case "expiring_soon":
+        return {
+          badge: "bg-amber-100 text-amber-700",
+          row: "bg-amber-50/50",
+        };
+      default:
+        return {
+          badge: "bg-matcha-100 text-matcha-700",
+          row: "",
+        };
+    }
   };
 
   return (
@@ -292,6 +426,35 @@ export default function Inventory() {
         </div>
       </div>
 
+      {expiringSoonBatches.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <AlertOctagon className="w-5 h-5 text-amber-500" />
+            <span className="font-medium text-amber-700">
+              有 {expiringSoonBatches.length} 个批次即将过期（7天内）
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {expiringSoonBatches.slice(0, 6).map((b) => {
+              const expiryInfo = getBatchExpiryInfo(b.expiryDate);
+              return (
+                <span
+                  key={b.id}
+                  className="px-3 py-1 bg-white rounded-full text-sm text-amber-600 border border-amber-200"
+                >
+                  {b.material.icon} {b.material.name} - {b.remainingQuantity}{b.material.unit}（{formatExpiryStatus(expiryInfo)}）
+                </span>
+              );
+            })}
+            {expiringSoonBatches.length > 6 && (
+              <span className="px-3 py-1 bg-white rounded-full text-sm text-amber-500 border border-amber-200">
+                +{expiringSoonBatches.length - 6} 更多
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {lowStockMaterials.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-3 mb-3">
@@ -301,14 +464,17 @@ export default function Inventory() {
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {lowStockMaterials.map((m) => (
-              <span
-                key={m.id}
-                className="px-3 py-1 bg-white rounded-full text-sm text-amber-600 border border-amber-200"
-              >
-                {m.icon} {m.name} ({m.stock}/{m.threshold})
-              </span>
-            ))}
+            {lowStockMaterials.map((m) => {
+              const usable = getUsableStock(m.id);
+              return (
+                <span
+                  key={m.id}
+                  className="px-3 py-1 bg-white rounded-full text-sm text-amber-600 border border-amber-200"
+                >
+                  {m.icon} {m.name} ({usable}/{m.threshold})
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -540,6 +706,7 @@ export default function Inventory() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-coffee-50">
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-coffee-700 w-10"></th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-coffee-700">
                       物料
                     </th>
@@ -547,7 +714,7 @@ export default function Inventory() {
                       分类
                     </th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-coffee-700">
-                      库存
+                      可用库存
                     </th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-coffee-700">
                       阈值
@@ -565,89 +732,228 @@ export default function Inventory() {
                 </thead>
                 <tbody>
                   {filteredMaterials.map((material, index) => {
-                    const status = getStatusBadge(material.stock, material.threshold);
+                    const usableStock = getUsableStock(material.id);
+                    const status = getStatusBadge(usableStock, material.threshold);
                     const pendingRequests = getPendingRequestsForMaterial(material.id);
+                    const isExpanded = expandedMaterials.has(material.id);
+                    const sortedBatches = getSortedBatchesByExpiry(material.id);
+                    const hasExpired = sortedBatches.some(b => b.expiryInfo.isExpired && b.batch.remainingQuantity > 0);
+
                     return (
-                      <motion.tr
-                        key={material.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.03 }}
-                        className="border-t border-coffee-50 hover:bg-coffee-50/50 transition-colors"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                              style={{ backgroundColor: material.color + "20" }}
-                            >
-                              {material.icon}
-                            </div>
-                            <div>
-                              <p className="font-medium text-coffee-800">{material.name}</p>
-                              <p className="text-xs text-coffee-400">{material.description}</p>
-                              {pendingRequests.length > 0 && (
-                                <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
-                                  <Clock className="w-3 h-3 inline" />
-                                  {pendingRequests.length} 条待审批
+                      <>
+                        <motion.tr
+                          key={material.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className={cn(
+                            "border-t border-coffee-50 hover:bg-coffee-50/50 transition-colors cursor-pointer",
+                            isExpanded && "bg-coffee-50/30"
+                          )}
+                          onClick={() => toggleMaterialExpand(material.id)}
+                        >
+                          <td className="px-4 py-4">
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-coffee-400" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-coffee-400" />
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                                style={{ backgroundColor: material.color + "20" }}
+                              >
+                                {material.icon}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-coffee-800">{material.name}</p>
+                                  {hasExpired && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full">
+                                      <AlertOctagon className="w-3 h-3" />
+                                      有过期批次
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-coffee-400">{material.description}</p>
+                                {pendingRequests.length > 0 && (
+                                  <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                                    <Clock className="w-3 h-3 inline" />
+                                    {pendingRequests.length} 条待审批
+                                  </p>
+                                )}
+                                <p className="text-xs text-coffee-400 mt-0.5">
+                                  {sortedBatches.length} 个批次
                                 </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-coffee-600">
+                              {categoryLabels[material.category]}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-coffee-800">
+                              {usableStock}
+                            </span>
+                            <span className="text-coffee-400 text-sm ml-1">
+                              {material.unit}
+                            </span>
+                            {material.stock > usableStock && (
+                              <p className="text-xs text-gray-400">
+                                总库存 {material.stock}{material.unit}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={material.threshold}
+                                onChange={(e) =>
+                                  handleThresholdChange(material.id, parseInt(e.target.value) || 0)
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-16 px-2 py-1 text-sm bg-cream-50 border border-coffee-200 rounded-lg text-center focus:outline-none focus:ring-1 focus:ring-coffee-400"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-coffee-600">
+                            {formatCurrency(material.unitPrice)}/{material.unit}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn("badge text-xs font-medium", status.className)}>
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div onClick={(e) => e.stopPropagation()}>
+                              {isAdmin ? (
+                                <button
+                                  onClick={() => openRestockModal(material)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-matcha-400 text-white text-sm font-medium rounded-lg hover:bg-matcha-500 transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  补货
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => openRequestModal(material)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-coffee-500 text-white text-sm font-medium rounded-lg hover:bg-coffee-600 transition-colors"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  申请补货
+                                </button>
                               )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-coffee-600">
-                            {categoryLabels[material.category]}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-coffee-800">
-                            {material.stock}
-                          </span>
-                          <span className="text-coffee-400 text-sm ml-1">
-                            {material.unit}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={material.threshold}
-                              onChange={(e) =>
-                                handleThresholdChange(material.id, parseInt(e.target.value) || 0)
-                              }
-                              className="w-16 px-2 py-1 text-sm bg-cream-50 border border-coffee-200 rounded-lg text-center focus:outline-none focus:ring-1 focus:ring-coffee-400"
-                            />
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-coffee-600">
-                          {formatCurrency(material.unitPrice)}/{material.unit}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={cn("badge text-xs font-medium", status.className)}>
-                            {status.label}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {isAdmin ? (
-                            <button
-                              onClick={() => openRestockModal(material)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-matcha-400 text-white text-sm font-medium rounded-lg hover:bg-matcha-500 transition-colors"
+                          </td>
+                        </motion.tr>
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.tr
+                              key={`${material.id}-batches`}
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="bg-coffee-50/20"
                             >
-                              <Plus className="w-4 h-4" />
-                              补货
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => openRequestModal(material)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-coffee-500 text-white text-sm font-medium rounded-lg hover:bg-coffee-600 transition-colors"
-                            >
-                              <FileText className="w-4 h-4" />
-                              申请补货
-                            </button>
+                              <td colSpan={8} className="px-6 py-3">
+                                <div className="ml-16 overflow-hidden rounded-xl border border-coffee-100 bg-white">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="bg-coffee-100/50">
+                                        <th className="text-left px-4 py-2 text-xs font-semibold text-coffee-600">
+                                          生产日期
+                                        </th>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold text-coffee-600">
+                                          保质期至
+                                        </th>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold text-coffee-600">
+                                          入库数量
+                                        </th>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold text-coffee-600">
+                                          剩余数量
+                                        </th>
+                                        <th className="text-left px-4 py-2 text-xs font-semibold text-coffee-600">
+                                          过期状态
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {sortedBatches.map(({ batch, expiryInfo }) => {
+                                        const styles = getBatchExpiryStyles(expiryInfo.status);
+                                        const canConsume = !expiryInfo.isExpired && batch.remainingQuantity > 0;
+
+                                        return (
+                                          <tr
+                                            key={batch.id}
+                                            className={cn(
+                                              "border-t border-coffee-50 transition-colors",
+                                              styles.row
+                                            )}
+                                          >
+                                            <td className="px-4 py-2 text-coffee-600">
+                                              <div className="flex items-center gap-1">
+                                                <Calendar className="w-3 h-3 text-coffee-400" />
+                                                {batch.productionDate}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-2 text-coffee-600">
+                                              <div className="flex items-center gap-1">
+                                                <Clock className="w-3 h-3 text-coffee-400" />
+                                                {batch.expiryDate}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-2 text-coffee-600">
+                                              {batch.quantity}{material.unit}
+                                            </td>
+                                            <td className="px-4 py-2">
+                                              <span className={cn(
+                                                "font-medium",
+                                                canConsume ? "text-coffee-800" : "text-gray-400 line-through"
+                                              )}>
+                                                {batch.remainingQuantity}{material.unit}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                              <span className={cn(
+                                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                                                styles.badge
+                                              )}>
+                                                {expiryInfo.isExpired ? (
+                                                  <AlertOctagon className="w-3 h-3" />
+                                                ) : expiryInfo.isExpiringSoon ? (
+                                                  <AlertTriangle className="w-3 h-3" />
+                                                ) : null}
+                                                {formatExpiryStatus(expiryInfo)}
+                                              </span>
+                                              {expiryInfo.isExpired && (
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                  已过期，不可取用
+                                                </p>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {sortedBatches.length === 0 && (
+                                        <tr>
+                                          <td colSpan={5} className="px-4 py-4 text-center text-coffee-400 text-sm">
+                                            暂无批次记录
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </motion.tr>
                           )}
-                        </td>
-                      </motion.tr>
+                        </AnimatePresence>
+                      </>
                     );
                   })}
                 </tbody>
@@ -724,7 +1030,7 @@ export default function Inventory() {
               <div>
                 <h4 className="font-bold text-coffee-800">{selectedMaterial.name}</h4>
                 <p className="text-sm text-coffee-500">
-                  当前库存：{selectedMaterial.stock} {selectedMaterial.unit}
+                  当前可用：{getUsableStock(selectedMaterial.id)} {selectedMaterial.unit}
                 </p>
                 <p className="text-sm text-coffee-500">
                   单价：{formatCurrency(selectedMaterial.unitPrice)}/{selectedMaterial.unit}
@@ -732,18 +1038,110 @@ export default function Inventory() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-coffee-700 mb-2">
-                补货数量
-              </label>
-              <input
-                type="number"
-                value={restockQuantity}
-                onChange={(e) => setRestockQuantity(e.target.value)}
-                placeholder="输入补货数量"
-                className="input-field"
-                autoFocus
-              />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-coffee-700">
+                  批次信息
+                </label>
+                <button
+                  type="button"
+                  onClick={addRestockBatch}
+                  className="inline-flex items-center gap-1 text-sm text-coffee-600 hover:text-coffee-800 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  添加批次
+                </button>
+              </div>
+
+              {restockBatches.map((batch, bIndex) => {
+                const expiryInfo = batch.productionDate && batch.expiryDate
+                  ? getBatchExpiryInfo(batch.expiryDate)
+                  : null;
+                const qtyNum = parseInt(batch.quantity);
+
+                return (
+                  <div
+                    key={batch.id}
+                    className="p-4 border border-coffee-200 rounded-xl bg-cream-50/50 space-y-3 relative"
+                  >
+                    {restockBatches.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRestockBatch(batch.id)}
+                        className="absolute top-2 right-2 p-1 text-coffee-400 hover:text-danger-500 transition-colors rounded-lg hover:bg-danger-50"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-coffee-600">
+                        批次 {bIndex + 1}
+                      </p>
+                      {expiryInfo && !isNaN(qtyNum) && qtyNum > 0 && (
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full font-medium",
+                          expiryInfo.isExpired
+                            ? "bg-gray-200 text-gray-600"
+                            : expiryInfo.isExpiringSoon
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-matcha-100 text-matcha-700"
+                        )}>
+                          {formatExpiryStatus(expiryInfo)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-coffee-600 mb-1">
+                          生产日期
+                        </label>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-coffee-400" />
+                          <input
+                            type="date"
+                            value={batch.productionDate}
+                            onChange={(e) => {
+                              updateRestockBatch(batch.id, "productionDate", e.target.value);
+                            }}
+                            onBlur={() => autoCalculateExpiry(batch.id)}
+                            className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-coffee-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-coffee-600 mb-1">
+                          保质期至
+                        </label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-coffee-400" />
+                          <input
+                            type="date"
+                            value={batch.expiryDate}
+                            onChange={(e) => updateRestockBatch(batch.id, "expiryDate", e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-coffee-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-coffee-600 mb-1">
+                        入库数量
+                      </label>
+                      <input
+                        type="number"
+                        value={batch.quantity}
+                        onChange={(e) => updateRestockBatch(batch.id, "quantity", e.target.value)}
+                        placeholder={`输入该批次入库数量（${selectedMaterial.unit}）`}
+                        className="w-full px-4 py-2 text-sm bg-white border border-coffee-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                        min="1"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div>
@@ -785,7 +1183,7 @@ export default function Inventory() {
             <div>
               <h4 className="font-bold text-coffee-800">{selectedMaterial.name}</h4>
               <p className="text-sm text-coffee-500">
-                当前库存：{selectedMaterial.stock} {selectedMaterial.unit}
+                当前可用：{getUsableStock(selectedMaterial.id)} {selectedMaterial.unit}
               </p>
               <p className="text-sm text-coffee-500">
                 单价：{formatCurrency(selectedMaterial.unitPrice)}/{selectedMaterial.unit}
@@ -916,4 +1314,3 @@ export default function Inventory() {
     </div>
   );
 }
-

@@ -8,8 +8,9 @@ import type {
   DutySchedule,
   Restock,
   UserMonthlyBudget,
+  Batch,
 } from "../types";
-import { generateId, getStartOfWeek, getEndOfWeek, formatDate } from "../utils/date";
+import { generateId, getStartOfWeek, getEndOfWeek, formatDate, addDays } from "../utils/date";
 
 const avatarColors = [
   "#6F4E37",
@@ -70,6 +71,28 @@ const generateMonthlyBudgets = (): UserMonthlyBudget[] => {
 
 export const mockMonthlyBudgets: UserMonthlyBudget[] = generateMonthlyBudgets();
 
+const generateBatch = (
+  materialId: string,
+  productionDaysAgo: number,
+  shelfLifeDays: number,
+  totalQuantity: number,
+  remainingQuantity: number
+): Batch => {
+  const now = new Date();
+  const productionDate = addDays(now, -productionDaysAgo);
+  const expiryDate = addDays(productionDate, shelfLifeDays);
+
+  return {
+    id: generateId(),
+    materialId,
+    productionDate: formatDate(productionDate, "YYYY-MM-DD"),
+    expiryDate: formatDate(expiryDate, "YYYY-MM-DD"),
+    quantity: totalQuantity,
+    remainingQuantity: remainingQuantity,
+    createdAt: productionDate.toISOString(),
+  };
+};
+
 export const mockMaterials: Material[] = [
   {
     id: "mat-1",
@@ -82,6 +105,12 @@ export const mockMaterials: Material[] = [
     icon: "☕",
     color: "#6F4E37",
     description: "深度烘焙，浓郁醇厚",
+    defaultShelfLifeDays: 90,
+    batches: [
+      generateBatch("mat-1", 15, 90, 30, 20),
+      generateBatch("mat-1", 60, 90, 30, 15),
+      generateBatch("mat-1", 85, 90, 20, 10),
+    ],
   },
   {
     id: "mat-2",
@@ -94,6 +123,11 @@ export const mockMaterials: Material[] = [
     icon: "🫘",
     color: "#8B6340",
     description: "果酸花香，浅度烘焙",
+    defaultShelfLifeDays: 90,
+    batches: [
+      generateBatch("mat-2", 88, 90, 25, 8),
+      generateBatch("mat-2", 30, 90, 10, 7),
+    ],
   },
   {
     id: "mat-3",
@@ -106,6 +140,11 @@ export const mockMaterials: Material[] = [
     icon: "🌙",
     color: "#A67C52",
     description: "无咖啡因，晚间友好",
+    defaultShelfLifeDays: 90,
+    batches: [
+      generateBatch("mat-3", 5, 90, 25, 20),
+      generateBatch("mat-3", 40, 90, 15, 10),
+    ],
   },
   {
     id: "mat-4",
@@ -118,6 +157,11 @@ export const mockMaterials: Material[] = [
     icon: "🍃",
     color: "#88B04B",
     description: "清香甘醇，明前茶",
+    defaultShelfLifeDays: 540,
+    batches: [
+      generateBatch("mat-4", 20, 540, 30, 25),
+      generateBatch("mat-4", 100, 540, 30, 25),
+    ],
   },
   {
     id: "mat-5",
@@ -130,6 +174,11 @@ export const mockMaterials: Material[] = [
     icon: "🫖",
     color: "#C0392B",
     description: "松烟香桂圆味",
+    defaultShelfLifeDays: 540,
+    batches: [
+      generateBatch("mat-5", 60, 540, 20, 15),
+      generateBatch("mat-5", 150, 540, 25, 20),
+    ],
   },
   {
     id: "mat-6",
@@ -142,6 +191,11 @@ export const mockMaterials: Material[] = [
     icon: "🌸",
     color: "#E67E22",
     description: "桂花香浓，回甘持久",
+    defaultShelfLifeDays: 540,
+    batches: [
+      generateBatch("mat-6", 500, 540, 10, 3),
+      generateBatch("mat-6", 530, 540, 10, 5),
+    ],
   },
   {
     id: "mat-7",
@@ -154,6 +208,10 @@ export const mockMaterials: Material[] = [
     icon: "🌼",
     color: "#F1C40F",
     description: "舒缓安神，花草茶",
+    defaultShelfLifeDays: 540,
+    batches: [
+      generateBatch("mat-7", 10, 540, 25, 25),
+    ],
   },
   {
     id: "mat-8",
@@ -166,6 +224,11 @@ export const mockMaterials: Material[] = [
     icon: "🥛",
     color: "#FFF8E7",
     description: "全脂牛奶，新鲜配送",
+    defaultShelfLifeDays: 7,
+    batches: [
+      generateBatch("mat-8", 3, 7, 10, 5),
+      generateBatch("mat-8", 6, 7, 10, 7),
+    ],
   },
   {
     id: "mat-9",
@@ -178,6 +241,10 @@ export const mockMaterials: Material[] = [
     icon: "🌾",
     color: "#D4A574",
     description: "植物基，乳糖不耐友好",
+    defaultShelfLifeDays: 30,
+    batches: [
+      generateBatch("mat-9", 25, 30, 10, 5),
+    ],
   },
   {
     id: "mat-10",
@@ -190,6 +257,11 @@ export const mockMaterials: Material[] = [
     icon: "🥥",
     color: "#F5DEB3",
     description: "椰香浓郁，清爽可口",
+    defaultShelfLifeDays: 45,
+    batches: [
+      generateBatch("mat-10", 5, 45, 15, 12),
+      generateBatch("mat-10", 40, 45, 10, 8),
+    ],
   },
   {
     id: "mat-11",
@@ -202,6 +274,11 @@ export const mockMaterials: Material[] = [
     icon: "🍬",
     color: "#FFFFFF",
     description: "独立小包装，方便卫生",
+    defaultShelfLifeDays: 730,
+    batches: [
+      generateBatch("mat-11", 30, 730, 60, 55),
+      generateBatch("mat-11", 100, 730, 50, 45),
+    ],
   },
   {
     id: "mat-12",
@@ -214,6 +291,11 @@ export const mockMaterials: Material[] = [
     icon: "🍪",
     color: "#D2691E",
     description: "酥脆香甜，下午茶伴侣",
+    defaultShelfLifeDays: 60,
+    batches: [
+      generateBatch("mat-12", 55, 60, 5, 2),
+      generateBatch("mat-12", 62, 60, 3, 1),
+    ],
   },
 ];
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Coffee, Droplets, Cookie, Sparkles, AlertTriangle } from "lucide-react";
+import { Coffee, Droplets, Cookie, Sparkles, AlertTriangle, AlertOctagon, Clock } from "lucide-react";
 import MaterialCard from "@/components/MaterialCard/MaterialCard";
 import LowStockAlert from "@/components/LowStockAlert/LowStockAlert";
 import StatsCard from "@/components/StatsCard/StatsCard";
@@ -11,7 +11,7 @@ import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { categoryLabels, type MaterialCategory } from "@/types";
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/utils/date";
+import { formatCurrency, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
 
 const categories: { key: MaterialCategory | "all"; label: string; icon: string }[] = [
   { key: "all", label: "全部", icon: "✨" },
@@ -27,7 +27,7 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<ToastType>("success");
 
-  const { materials, consumeMaterial } = useMaterialStore();
+  const { materials, consumeMaterial, getUsableStock, getExpiringSoonBatches } = useMaterialStore();
   const { currentUser } = useUserStore();
   const { addConsumption, getUserStats, getMonthlyStats } = useConsumptionStore();
   const { getUserBudgetInfo, checkCanConsume } = useBudgetStore();
@@ -59,6 +59,12 @@ export default function Home() {
       return;
     }
 
+    const usableStock = getUsableStock(materialId);
+    if (usableStock < quantity) {
+      showToast("可用库存不足（扣除过期批次后），请联系采购负责人补货", "error");
+      return;
+    }
+
     const success = consumeMaterial(materialId, quantity);
     if (success) {
       addConsumption(currentUser.id, materialId, quantity);
@@ -68,6 +74,8 @@ export default function Home() {
       showToast("库存不足，请联系采购负责人补货", "error");
     }
   };
+
+  const expiringSoonBatches = getExpiringSoonBatches(7);
 
   const container = {
     hidden: { opacity: 0 },
@@ -94,6 +102,78 @@ export default function Home() {
       />
 
       <LowStockAlert />
+
+      {expiringSoonBatches.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 mb-6 shadow-soft"
+        >
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500 rounded-xl">
+                <AlertOctagon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-800">⚠️ 保质期提醒</h3>
+                <p className="text-sm text-amber-600">
+                  {expiringSoonBatches.length} 个批次将在 7 天内过期，请尽快使用
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-amber-700">
+                {expiringSoonBatches.reduce((sum, b) => sum + b.remainingQuantity, 0)}
+              </p>
+              <p className="text-xs text-amber-500">即将过期总数量</p>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {expiringSoonBatches.map((batch, index) => {
+              const expiryInfo = getBatchExpiryInfo(batch.expiryDate);
+              return (
+                <motion.div
+                  key={batch.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="flex items-center justify-between p-3 bg-white/80 rounded-xl border border-amber-100 hover:bg-white transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ backgroundColor: batch.material.color + "30" }}
+                    >
+                      {batch.material.icon}
+                    </div>
+                    <div>
+                      <p className="font-medium text-coffee-800">{batch.material.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Clock className="w-3 h-3 text-amber-500" />
+                        <p className="text-xs text-amber-600">
+                          到期日：{batch.expiryDate}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-700 text-sm font-semibold rounded-full">
+                      {batch.remainingQuantity}{batch.material.unit}
+                    </span>
+                    <p className={cn(
+                      "text-xs mt-1 font-medium",
+                      expiryInfo.daysUntilExpiry <= 2 ? "text-danger-600" : "text-amber-600"
+                    )}>
+                      {formatExpiryStatus(expiryInfo)}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {userBudgetInfo && (
         <motion.div

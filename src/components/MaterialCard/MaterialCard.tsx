@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Material } from "@/types";
-import { getStockStatus } from "@/utils/date";
-import { Plus, Minus } from "lucide-react";
+import { getStockStatus, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
+import { Plus, Minus, AlertTriangle, AlertOctagon } from "lucide-react";
+import { useMaterialStore } from "@/store/useMaterialStore";
 
 interface MaterialCardProps {
   material: Material;
@@ -17,8 +18,28 @@ export default function MaterialCard({
   showConsumeButton = true,
   className,
 }: MaterialCardProps) {
-  const stockStatus = getStockStatus(material.stock, material.threshold);
-  const stockPercentage = Math.min((material.stock / (material.threshold * 3)) * 100, 100);
+  const { getUsableStock, getExpiringSoonBatches, getExpiredBatches } = useMaterialStore();
+
+  const usableStock = getUsableStock(material.id);
+  const stockStatus = getStockStatus(usableStock, material.threshold);
+  const stockPercentage = Math.min((usableStock / (material.threshold * 3)) * 100, 100);
+
+  const expiringSoonForMaterial = getExpiringSoonBatches(7).filter(
+    (b) => b.materialId === material.id
+  );
+  const expiredForMaterial = getExpiredBatches().filter(
+    (b) => b.materialId === material.id
+  );
+
+  const hasExpiringSoon = expiringSoonForMaterial.length > 0;
+  const hasExpired = expiredForMaterial.length > 0;
+  const expiringSoonTotal = expiringSoonForMaterial.reduce(
+    (sum, b) => sum + b.remainingQuantity, 0
+  );
+
+  const mostUrgentBatch = [...expiringSoonForMaterial].sort(
+    (a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
+  )[0];
 
   const statusColors = {
     sufficient: "bg-matcha-400",
@@ -74,14 +95,47 @@ export default function MaterialCard({
       </div>
 
       <h3 className="text-lg font-bold text-coffee-800 mb-1">{material.name}</h3>
-      <p className="text-sm text-coffee-400 mb-4">{material.description}</p>
+      <p className="text-sm text-coffee-400 mb-3">{material.description}</p>
+
+      {(hasExpiringSoon || hasExpired) && (
+        <div className="mb-3 space-y-1.5">
+          {hasExpiringSoon && mostUrgentBatch && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 rounded-lg border border-amber-100">
+              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-amber-700">
+                  {expiringSoonTotal}{material.unit} 即将过期
+                </p>
+                <p className="text-xs text-amber-600">
+                  最快到期：{formatExpiryStatus(getBatchExpiryInfo(mostUrgentBatch.expiryDate))}
+                </p>
+              </div>
+            </div>
+          )}
+          {hasExpired && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
+              <AlertOctagon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <p className="text-xs text-gray-600">
+                有 {expiredForMaterial.length} 个批次已过期
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-coffee-500">剩余库存</span>
-          <span className={cn("text-sm font-bold", statusTextColors[stockStatus])}>
-            {material.stock} {material.unit}
-          </span>
+          <div className="text-right">
+            <span className={cn("text-sm font-bold", statusTextColors[stockStatus])}>
+              {usableStock} {material.unit}
+            </span>
+            {material.stock > usableStock && (
+              <p className="text-xs text-gray-400">
+                (含过期 {material.stock - usableStock}{material.unit})
+              </p>
+            )}
+          </div>
         </div>
         <div className="progress-bar">
           <motion.div
@@ -101,10 +155,10 @@ export default function MaterialCard({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onConsume(1)}
-            disabled={material.stock < 1}
+            disabled={usableStock < 1}
             className={cn(
               "flex-1 py-2.5 rounded-xl font-medium text-sm transition-all duration-200",
-              material.stock >= 1
+              usableStock >= 1
                 ? "bg-coffee-700 text-white hover:bg-coffee-800 active:scale-95"
                 : "bg-coffee-100 text-coffee-300 cursor-not-allowed"
             )}
@@ -113,7 +167,13 @@ export default function MaterialCard({
           </button>
           <button
             onClick={() => onConsume(1)}
-            className="p-2.5 rounded-xl bg-cream-100 text-coffee-600 hover:bg-cream-200 transition-colors"
+            disabled={usableStock < 1}
+            className={cn(
+              "p-2.5 rounded-xl transition-colors",
+              usableStock >= 1
+                ? "bg-cream-100 text-coffee-600 hover:bg-cream-200"
+                : "bg-coffee-50 text-coffee-300 cursor-not-allowed"
+            )}
           >
             <Plus className="w-4 h-4" />
           </button>

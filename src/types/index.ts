@@ -30,6 +30,16 @@ export interface UserBudgetInfo {
 
 export type MaterialCategory = "coffee" | "tea" | "dairy" | "snack";
 
+export interface Batch {
+  id: string;
+  materialId: string;
+  productionDate: string;
+  expiryDate: string;
+  quantity: number;
+  remainingQuantity: number;
+  createdAt: string;
+}
+
 export interface Material {
   id: string;
   name: string;
@@ -41,6 +51,8 @@ export interface Material {
   icon: string;
   color: string;
   description?: string;
+  batches: Batch[];
+  defaultShelfLifeDays?: number;
 }
 
 export interface Consumption {
@@ -94,6 +106,14 @@ export interface DutySchedule {
 }
 
 export type StockStatus = "sufficient" | "low" | "critical";
+export type BatchExpiryStatus = "normal" | "expiring_soon" | "expired";
+
+export interface BatchExpiryInfo {
+  status: BatchExpiryStatus;
+  daysUntilExpiry: number;
+  isExpired: boolean;
+  isExpiringSoon: boolean;
+}
 
 export type RestockRequestStatus = "pending" | "approved" | "rejected";
 

@@ -113,3 +113,53 @@ export const getStockStatus = (stock: number, threshold: number): "sufficient" |
   if (ratio <= 1) return "low";
   return "sufficient";
 };
+
+export const EXPIRING_SOON_DAYS = 7;
+
+export const getDaysUntilExpiry = (expiryDate: string | Date): number => {
+  const expiry = typeof expiryDate === "string" ? new Date(expiryDate) : expiryDate;
+  const now = new Date();
+  const diffTime = expiry.getTime() - now.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+export const getBatchExpiryInfo = (
+  expiryDate: string | Date,
+  expiringSoonDays: number = EXPIRING_SOON_DAYS
+): {
+  status: "normal" | "expiring_soon" | "expired";
+  daysUntilExpiry: number;
+  isExpired: boolean;
+  isExpiringSoon: boolean;
+} => {
+  const daysUntilExpiry = getDaysUntilExpiry(expiryDate);
+  const isExpired = daysUntilExpiry < 0;
+  const isExpiringSoon = daysUntilExpiry >= 0 && daysUntilExpiry <= expiringSoonDays;
+
+  let status: "normal" | "expiring_soon" | "expired" = "normal";
+  if (isExpired) status = "expired";
+  else if (isExpiringSoon) status = "expiring_soon";
+
+  return { status, daysUntilExpiry, isExpired, isExpiringSoon };
+};
+
+export const addDays = (date: Date, days: number): Date => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
+export const formatExpiryStatus = (
+  expiryInfo: { status: string; daysUntilExpiry: number; isExpired: boolean; isExpiringSoon: boolean }
+): string => {
+  if (expiryInfo.isExpired) {
+    return `已过期 ${Math.abs(expiryInfo.daysUntilExpiry)} 天`;
+  }
+  if (expiryInfo.daysUntilExpiry === 0) {
+    return "今天到期";
+  }
+  if (expiryInfo.daysUntilExpiry === 1) {
+    return "明天到期";
+  }
+  return `还剩 ${expiryInfo.daysUntilExpiry} 天`;
+};

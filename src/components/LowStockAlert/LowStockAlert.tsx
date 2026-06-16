@@ -7,7 +7,7 @@ import { useUserStore } from "@/store/useUserStore";
 
 export default function LowStockAlert() {
   const navigate = useNavigate();
-  const { getLowStockMaterials } = useMaterialStore();
+  const { getLowStockMaterials, getUsableStock } = useMaterialStore();
   const { getCurrentDutyUser } = useDutyStore();
   const { getUserById } = useUserStore();
 
@@ -17,7 +17,7 @@ export default function LowStockAlert() {
   if (lowStockMaterials.length === 0) return null;
 
   const criticalCount = lowStockMaterials.filter(
-    (m) => m.stock <= m.threshold * 0.3
+    (m) => getUsableStock(m.id) <= m.threshold * 0.3
   ).length;
 
   return (
