@@ -12,6 +12,9 @@ import {
   FileText,
   Users,
   Wallet,
+  Vote,
+  CheckCircle,
+  ArrowRight,
 } from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
@@ -19,7 +22,9 @@ import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
-import { categoryLabels, type MaterialCategory, type Material, type User } from "@/types";
+import { useDutyStore } from "@/store/useDutyStore";
+import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
+import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStockStatus, timeAgo } from "@/utils/date";
 
@@ -55,6 +60,13 @@ export default function Inventory() {
   const { currentUser, users } = useUserStore();
   const { submitRequest, getPendingCount, requests } = useRestockRequestStore();
   const { setUserBudget, getAllUserBudgetInfos } = useBudgetStore();
+  const { getCurrentDutyUser } = useDutyStore();
+  const { getPendingSuggestions, markAsProcessed } = useVoteSuggestionStore();
+
+  const currentDutyUser = getCurrentDutyUser();
+  const isCurrentDutyUser = currentUser && currentDutyUser && currentUser.id === currentDutyUser.id;
+  const pendingSuggestions = getPendingSuggestions();
+  const [selectedSuggestion, setSelectedSuggestion] = useState<VoteSuggestion | null>(null);
 
   const isAdmin = currentUser?.role === "admin";
   const pendingCount = getPendingCount();
@@ -104,6 +116,11 @@ export default function Inventory() {
     restockMaterial(selectedMaterial.id, quantity, currentUser.id, cost);
     showToast(`补货成功！${selectedMaterial.name} +${quantity}${selectedMaterial.unit}`, "success");
     setRestockModalOpen(false);
+
+    if (selectedSuggestion) {
+      markAsProcessed(selectedSuggestion.id);
+      setSelectedSuggestion(null);
+    }
   };
 
   const handleSubmitRequest = () => {
@@ -123,7 +140,7 @@ export default function Inventory() {
 
     const estimatedCost = quantity * selectedMaterial.unitPrice;
 
-    submitRequest(
+    const requestId = submitRequest(
       selectedMaterial.id,
       quantity,
       estimatedCost,
@@ -133,6 +150,11 @@ export default function Inventory() {
 
     showToast("已提交补货申请，等待管理员审批", "success");
     setRequestModalOpen(false);
+
+    if (selectedSuggestion) {
+      markAsProcessed(selectedSuggestion.id, requestId);
+      setSelectedSuggestion(null);
+    }
   };
 
   const handleThresholdChange = (materialId: string, threshold: number) => {
@@ -144,6 +166,41 @@ export default function Inventory() {
     setSelectedUserForBudget(user);
     setNewBudgetAmount(String(user.monthlyBudget));
     setBudgetModalOpen(true);
+  };
+
+  const applySuggestionToRequest = (suggestion: VoteSuggestion) => {
+    const matchingMaterial = materials.find((m) =>
+      m.name.includes(suggestion.optionName) || suggestion.optionName.includes(m.name)
+    );
+
+    if (matchingMaterial) {
+      setSelectedMaterial(matchingMaterial);
+      setRequestQuantity(String(suggestion.suggestedQuantity));
+      setRequestReason(`根据投票结果「${suggestion.voteTitle}」，「${suggestion.optionName}」以 ${suggestion.votes} 票胜出，建议补货 ${suggestion.suggestedQuantity} ${matchingMaterial.unit}`);
+      setSelectedSuggestion(suggestion);
+      setRequestModalOpen(true);
+    } else {
+      setSelectedSuggestion(suggestion);
+      setRequestQuantity(String(suggestion.suggestedQuantity));
+      setRequestReason(`根据投票结果「${suggestion.voteTitle}」，「${suggestion.optionName}」以 ${suggestion.votes} 票胜出，建议补货 ${suggestion.suggestedQuantity} 单位`);
+      setRequestModalOpen(true);
+    }
+  };
+
+  const applySuggestionToRestock = (suggestion: VoteSuggestion) => {
+    const matchingMaterial = materials.find((m) =>
+      m.name.includes(suggestion.optionName) || suggestion.optionName.includes(m.name)
+    );
+
+    if (matchingMaterial) {
+      setSelectedMaterial(matchingMaterial);
+      setRestockQuantity(String(suggestion.suggestedQuantity));
+      setRestockCost(String(matchingMaterial.unitPrice * suggestion.suggestedQuantity));
+      setSelectedSuggestion(suggestion);
+      setRestockModalOpen(true);
+    } else {
+      showToast(`未找到与「${suggestion.optionName}」匹配的物料，请先添加该物料`, "warning");
+    }
   };
 
   const handleSetBudget = () => {
@@ -255,6 +312,98 @@ export default function Inventory() {
             ))}
           </div>
         </div>
+      )}
+
+      {isCurrentDutyUser && pendingSuggestions.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-vote-50 to-vote-100 border border-vote-200 rounded-2xl p-5 mb-6"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-vote-500 rounded-xl">
+              <Vote className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-vote-800">来自投票的补货建议</h3>
+              <p className="text-sm text-vote-600">本周值班人员专属 - 投票结果已出，请及时处理</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {pendingSuggestions.map((suggestion, index) => {
+              const matchingMaterial = materials.find((m) =>
+                m.name.includes(suggestion.optionName) || suggestion.optionName.includes(m.name)
+              );
+
+              return (
+                <motion.div
+                  key={suggestion.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-white rounded-xl p-4 shadow-soft"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="w-12 h-12 rounded-xl bg-vote-100 flex items-center justify-center text-2xl flex-shrink-0">
+                        {suggestion.optionIcon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-coffee-800 truncate">
+                            {suggestion.optionName}
+                          </h4>
+                          <span className="px-2 py-0.5 bg-vote-200 text-vote-700 text-xs rounded-full font-medium">
+                            #{suggestion.votes} 票
+                          </span>
+                        </div>
+                        <p className="text-xs text-coffee-500 mt-1 truncate">
+                          投票：{suggestion.voteTitle}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-sm text-coffee-600">
+                            建议数量：<span className="font-bold text-vote-600">{suggestion.suggestedQuantity}</span>
+                            {matchingMaterial ? ` ${matchingMaterial.unit}` : " 单位"}
+                          </span>
+                          {matchingMaterial && (
+                            <span className="text-sm text-coffee-500">
+                              匹配物料：{matchingMaterial.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {isAdmin ? (
+                        <button
+                          onClick={() => applySuggestionToRestock(suggestion)}
+                          className="flex items-center gap-1 px-4 py-2 bg-matcha-500 text-white text-sm font-medium rounded-lg hover:bg-matcha-600 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          直接补货
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => applySuggestionToRequest(suggestion)}
+                          className="flex items-center gap-1 px-4 py-2 bg-vote-500 text-white text-sm font-medium rounded-lg hover:bg-vote-600 transition-colors"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                          一键填入申请
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 text-xs text-vote-600">
+            <CheckCircle className="w-4 h-4" />
+            <span>补货完成后，建议将自动标记为已处理</span>
+          </div>
+        </motion.div>
       )}
 
       <div className="bg-white rounded-2xl shadow-soft p-4 mb-6">

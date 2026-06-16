@@ -60,7 +60,7 @@ interface RestockRequestState {
     estimatedCost: number,
     applicantId: string,
     reason: string
-  ) => void;
+  ) => string;
   approveRequest: (requestId: string, approverId: string) => boolean;
   rejectRequest: (requestId: string, approverId: string, rejectReason: string) => boolean;
   getRequestsByStatus: (status: RestockRequestStatus) => RestockRequest[];
@@ -94,6 +94,7 @@ export const useRestockRequestStore = create<RestockRequestState>((set, get) => 
     const updated = [newRequest, ...get().requests];
     set({ requests: updated });
     storage.set("restockRequests", updated);
+    return newRequest.id;
   },
 
   approveRequest: (requestId: string, approverId: string) => {

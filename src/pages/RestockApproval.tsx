@@ -16,6 +16,7 @@ import Toast, { ToastType } from "@/components/Toast/Toast";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { categoryLabels, type RestockRequestStatus, type RestockRequest } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, timeAgo } from "@/utils/date";
@@ -61,6 +62,7 @@ export default function RestockApproval() {
   const { requests, approveRequest, rejectRequest, getPendingCount } = useRestockRequestStore();
   const { materials } = useMaterialStore();
   const { currentUser, users, getUserById } = useUserStore();
+  const { suggestions, markAsProcessed } = useVoteSuggestionStore();
 
   const isAdmin = currentUser?.role === "admin";
 
@@ -81,6 +83,13 @@ export default function RestockApproval() {
     if (success) {
       const material = materials.find((m) => m.id === request.materialId);
       showToast(`已通过 ${material?.name || "物料"} 的补货申请`, "success");
+
+      const relatedSuggestion = suggestions.find(
+        (s) => s.status === "pending" && s.restockRequestId === request.id
+      );
+      if (relatedSuggestion) {
+        markAsProcessed(relatedSuggestion.id, request.id);
+      }
     }
   };
 

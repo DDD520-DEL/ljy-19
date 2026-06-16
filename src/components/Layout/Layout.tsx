@@ -10,6 +10,7 @@ import { useBudgetStore, setBudgetMaterialsCache, setBudgetUsersCache } from "@/
 import { useVoteStore } from "@/store/useVoteStore";
 import { useDutyStore } from "@/store/useDutyStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
+import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -18,9 +19,10 @@ export default function Layout() {
   const { materials, initMaterials } = useMaterialStore();
   const { initConsumptions } = useConsumptionStore();
   const { initBudgets } = useBudgetStore();
-  const { initVote } = useVoteStore();
+  const { initVote, checkVoteExpiry } = useVoteStore();
   const { initDuty } = useDutyStore();
   const { initRequests } = useRestockRequestStore();
+  const { initSuggestions } = useVoteSuggestionStore();
 
   useEffect(() => {
     initUsers();
@@ -30,7 +32,16 @@ export default function Layout() {
     initVote();
     initDuty();
     initRequests();
+    initSuggestions();
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      checkVoteExpiry();
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, [checkVoteExpiry]);
 
   useEffect(() => {
     if (materials.length > 0) {

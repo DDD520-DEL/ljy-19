@@ -112,6 +112,22 @@ export interface RestockRequest {
   rejectReason?: string;
 }
 
+export interface VoteSuggestion {
+  id: string;
+  voteId: string;
+  voteTitle: string;
+  optionId: string;
+  optionName: string;
+  optionIcon: string;
+  votes: number;
+  suggestedQuantity: number;
+  materialId?: string;
+  status: 'pending' | 'processed';
+  createdAt: string;
+  processedAt?: string;
+  restockRequestId?: string;
+}
+
 export interface UserStats {
   userId: string;
   totalConsumptions: number;

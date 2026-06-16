@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Vote, Clock, Check, BarChart2, Users } from "lucide-react";
+import { Vote, Clock, Check, BarChart2, Users, Sparkles } from "lucide-react";
 import Toast, { ToastType } from "@/components/Toast/Toast";
 import { useVoteStore } from "@/store/useVoteStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/date";
 
@@ -14,13 +15,16 @@ export default function VotePage() {
   const [toastType, setToastType] = useState<ToastType>("success");
   const [timeLeft, setTimeLeft] = useState("");
 
-  const { vote, options, hasUserVoted, getUserVote, submitVote, getTotalVotes, getVotePercentage } =
+  const { vote, options, hasUserVoted, getUserVote, submitVote, getTotalVotes, getVotePercentage, checkVoteExpiry, getWinningOption } =
     useVoteStore();
   const { currentUser } = useUserStore();
+  const { hasSuggestionForVote } = useVoteSuggestionStore();
 
   const userVoted = currentUser ? hasUserVoted(currentUser.id) : false;
   const userVoteRecord = currentUser ? getUserVote(currentUser.id) : undefined;
   const totalVotes = getTotalVotes();
+  const winningOption = getWinningOption();
+  const hasSuggestion = vote ? hasSuggestionForVote(vote.id) : false;
 
   useEffect(() => {
     if (userVoteRecord) {
@@ -38,6 +42,7 @@ export default function VotePage() {
 
       if (diff <= 0) {
         setTimeLeft("投票已结束");
+        checkVoteExpiry();
         return;
       }
 
@@ -57,7 +62,7 @@ export default function VotePage() {
     updateTimeLeft();
     const timer = setInterval(updateTimeLeft, 60000);
     return () => clearInterval(timer);
-  }, [vote?.endTime]);
+  }, [vote?.endTime, checkVoteExpiry]);
 
   const showToast = (message: string, type: ToastType = "success") => {
     setToastMessage(message);
@@ -146,6 +151,37 @@ export default function VotePage() {
               </div>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {!vote?.isActive && winningOption && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-vote-500 to-vote-700 rounded-2xl p-6 mb-6 text-white shadow-medium"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-white/20 rounded-2xl">
+              <Sparkles className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-2">🎉 投票结果已出！</h3>
+              <p className="text-white/80 text-sm mb-3">
+                「{winningOption.icon} {winningOption.name}」以 {winningOption.votes} 票胜出！
+              </p>
+              {hasSuggestion ? (
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <Check className="w-4 h-4" />
+                  <span>已自动生成补货建议，本周值班人员可在库存页查看</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <Clock className="w-4 h-4" />
+                  <span>正在生成补货建议...</span>
+                </div>
+              )}
+            </div>
+          </div>
         </motion.div>
       )}
 
