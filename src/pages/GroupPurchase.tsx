@@ -131,9 +131,13 @@ export default function GroupPurchase() {
       });
     });
 
-    settleGroupPurchase(gp.id);
-    setShowDetailModal(false);
-    showToast("拼单已结算，库存已扣减，消费已记录", "success");
+    const settledGP = settleGroupPurchase(gp.id);
+    if (settledGP) {
+      setShowDetailModal(false);
+      showToast("拼单已结算，库存已扣减，消费已记录", "success");
+    } else {
+      showToast("结算失败，拼单状态异常", "error");
+    }
   };
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
@@ -240,6 +244,7 @@ export default function GroupPurchase() {
           getUsableStock={getUsableStock}
           getAvailableStockForMaterial={getAvailableStockForMaterial}
           currentUser={currentUser}
+          showToast={showToast}
           onClose={() => setShowCreateModal(false)}
           onCreate={(materialIds, deadline) => {
             if (!currentUser) return;
@@ -257,6 +262,7 @@ export default function GroupPurchase() {
           currentUser={currentUser}
           getAvailableStockForMaterial={getAvailableStockForMaterial}
           hasUserJoined={hasUserJoined}
+          showToast={showToast}
           onClose={() => {
             setShowJoinModal(false);
             setSelectedGP(null);
@@ -403,6 +409,7 @@ function CreateGroupPurchaseModal({
   getUsableStock,
   getAvailableStockForMaterial,
   currentUser,
+  showToast,
   onClose,
   onCreate,
 }: {
@@ -410,6 +417,7 @@ function CreateGroupPurchaseModal({
   getUsableStock: (id: string) => number;
   getAvailableStockForMaterial: (id: string, usableStock: number) => number;
   currentUser: { id: string; name: string } | null;
+  showToast: (message: string, type?: ToastType) => void;
   onClose: () => void;
   onCreate: (materialIds: string[], deadline: string) => void;
 }) {
@@ -433,14 +441,24 @@ function CreateGroupPurchaseModal({
   };
 
   const handleSubmit = () => {
-    if (!currentUser) return;
-    if (selectedMaterials.size === 0) {
+    if (!currentUser) {
+      showToast("请先选择用户身份", "warning");
       return;
     }
-    if (!deadlineDate) return;
+    if (selectedMaterials.size === 0) {
+      showToast("请至少选择一种物料", "warning");
+      return;
+    }
+    if (!deadlineDate) {
+      showToast("请选择截止日期", "warning");
+      return;
+    }
 
     const deadline = new Date(`${deadlineDate}T${deadlineTime}`);
-    if (deadline <= new Date()) return;
+    if (deadline <= new Date()) {
+      showToast("截止时间必须晚于当前时间", "warning");
+      return;
+    }
 
     onCreate(Array.from(selectedMaterials), deadline.toISOString());
   };
@@ -537,6 +555,7 @@ function JoinGroupPurchaseModal({
   currentUser,
   getAvailableStockForMaterial,
   hasUserJoined,
+  showToast,
   onClose,
   onJoin,
 }: {
@@ -545,6 +564,7 @@ function JoinGroupPurchaseModal({
   currentUser: { id: string; name: string } | null;
   getAvailableStockForMaterial: (id: string, usableStock: number) => number;
   hasUserJoined: (gpId: string, userId: string) => boolean;
+  showToast: (message: string, type?: ToastType) => void;
   onClose: () => void;
   onJoin: (items: GroupPurchaseParticipantItem[]) => void;
 }) {
@@ -595,13 +615,18 @@ function JoinGroupPurchaseModal({
         items.push({ materialId, quantity });
       }
     }
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      showToast("请至少选择一种物料的数量", "warning");
+      return;
+    }
 
     const materialStore = useMaterialStore.getState();
     for (const item of items) {
       const usable = materialStore.getUsableStock(item.materialId);
       const available = getAvailableStockForMaterial(item.materialId, usable);
       if (item.quantity > available) {
+        const mat = materials.find((mt) => mt.id === item.materialId);
+        showToast(`${mat?.name || "物料"}库存不足，可用 ${available}${mat?.unit || ""}`, "error");
         return;
       }
     }
