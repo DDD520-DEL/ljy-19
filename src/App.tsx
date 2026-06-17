@@ -8,6 +8,7 @@ import Duty from "@/pages/Duty";
 import Profile from "@/pages/Profile";
 import RestockApproval from "@/pages/RestockApproval";
 import GroupPurchase from "@/pages/GroupPurchase";
+import GroupBuy from "@/pages/GroupBuy";
 import Register from "@/pages/Register";
 import InvitationManagement from "@/pages/InvitationManagement";
 import UserManagement from "@/pages/UserManagement";
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="vote" element={<Vote />} />
           <Route path="wishlist" element={<Wishlist />} />
           <Route path="group-purchase" element={<GroupPurchase />} />
+          <Route path="group-buy" element={<GroupBuy />} />
           <Route path="stats" element={<Stats />} />
           <Route path="duty" element={<Duty />} />
           <Route path="profile" element={<Profile />} />

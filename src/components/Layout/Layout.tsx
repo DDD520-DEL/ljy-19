@@ -13,6 +13,7 @@ import { useDutyStore } from "@/store/useDutyStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
+import { useGroupBuyStore } from "@/store/useGroupBuyStore";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useInvitationStore } from "@/store/useInvitationStore";
 import { useAnnouncementStore } from "@/store/useAnnouncementStore";
@@ -31,6 +32,7 @@ export default function Layout() {
   const { initRequests } = useRestockRequestStore();
   const { initSuggestions } = useVoteSuggestionStore();
   const { initGroupPurchases, checkAndSettleExpired } = useGroupPurchaseStore();
+  const { initGroupBuyReservations, checkAndSettleExpired: checkAndSettleGroupBuy } = useGroupBuyStore();
   const { initReviews } = useReviewStore();
   const { initInvitationCodes } = useInvitationStore();
   const { initAnnouncements, checkAndUpdateExpired } = useAnnouncementStore();
@@ -47,6 +49,7 @@ export default function Layout() {
     initRequests();
     initSuggestions();
     initGroupPurchases();
+    initGroupBuyReservations();
     initReviews();
     initInvitationCodes();
     initAnnouncements();
@@ -58,12 +61,13 @@ export default function Layout() {
     const timer = setInterval(() => {
       checkVoteExpiry();
       checkAndSettleExpired();
+      checkAndSettleGroupBuy();
       checkAndRotateDuty();
       checkAndUpdateExpired();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, [checkVoteExpiry, checkAndSettleExpired, checkAndRotateDuty, checkAndUpdateExpired]);
+  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired]);
 
   useEffect(() => {
     if (materials.length > 0) {

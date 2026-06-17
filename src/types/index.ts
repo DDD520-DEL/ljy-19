@@ -222,6 +222,31 @@ export interface GroupPurchase {
   settledAt?: string;
 }
 
+export type GroupBuyReservationStatus = "active" | "succeeded" | "cancelled";
+
+export interface GroupBuyParticipant {
+  userId: string;
+  quantity: number;
+  joinedAt: string;
+}
+
+export interface GroupBuyReservation {
+  id: string;
+  creatorId: string;
+  materialId: string;
+  title: string;
+  unitPrice: number;
+  targetQuantity: number;
+  deadline: string;
+  status: GroupBuyReservationStatus;
+  participants: GroupBuyParticipant[];
+  shareCode: string;
+  createdAt: string;
+  settledAt?: string;
+  cancelledAt?: string;
+  restockRequestId?: string;
+}
+
 export interface UserStats {
   userId: string;
   totalConsumptions: number;
