@@ -12,6 +12,7 @@ import Register from "@/pages/Register";
 import InvitationManagement from "@/pages/InvitationManagement";
 import UserManagement from "@/pages/UserManagement";
 import AnnouncementManagement from "@/pages/AnnouncementManagement";
+import Wishlist from "@/pages/Wishlist";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="restock-approval" element={<RestockApproval />} />
           <Route path="vote" element={<Vote />} />
+          <Route path="wishlist" element={<Wishlist />} />
           <Route path="group-purchase" element={<GroupPurchase />} />
           <Route path="stats" element={<Stats />} />
           <Route path="duty" element={<Duty />} />

@@ -13,10 +13,12 @@ import {
   Ticket,
   Shield,
   Megaphone,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useWishListStore } from "@/store/useWishListStore";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -27,8 +29,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { getPendingCount } = useRestockRequestStore();
   const { currentUser, getPendingUsers } = useUserStore();
+  const { getWishesByStatus } = useWishListStore();
   const pendingCount = getPendingCount();
   const pendingUserCount = getPendingUsers().length;
+  const pendingWishCount = getWishesByStatus("pending").length;
   const isAdmin = currentUser?.role === "admin";
 
   const navItems = [
@@ -39,6 +43,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       : []),
     { path: "/group-purchase", label: "团队拼单", icon: Users },
     { path: "/vote", label: "我想喝什么", icon: Vote },
+    { path: "/wishlist", label: "心愿单", icon: Star, badge: isAdmin ? pendingWishCount : 0 },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },
     { path: "/announcements", label: "公告通知", icon: Megaphone },

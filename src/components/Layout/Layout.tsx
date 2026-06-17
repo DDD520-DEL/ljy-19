@@ -16,6 +16,7 @@ import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useInvitationStore } from "@/store/useInvitationStore";
 import { useAnnouncementStore } from "@/store/useAnnouncementStore";
+import { useWishListStore } from "@/store/useWishListStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -32,6 +33,7 @@ export default function Layout() {
   const { initReviews } = useReviewStore();
   const { initInvitationCodes } = useInvitationStore();
   const { initAnnouncements, checkAndUpdateExpired } = useAnnouncementStore();
+  const { initWishes } = useWishListStore();
 
   useEffect(() => {
     initUsers();
@@ -46,6 +48,7 @@ export default function Layout() {
     initReviews();
     initInvitationCodes();
     initAnnouncements();
+    initWishes();
   }, []);
 
   useEffect(() => {

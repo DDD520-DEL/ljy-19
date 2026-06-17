@@ -329,3 +329,31 @@ export const announcementTypeColors: Record<AnnouncementType, string> = {
   maintenance: "#F59E0B",
   holiday: "#EF4444",
 };
+
+export type WishStatus = "pending" | "purchased" | "declined";
+
+export interface Wish {
+  id: string;
+  name: string;
+  recommendLink?: string;
+  reason: string;
+  createdBy: string;
+  createdAt: string;
+  likes: string[];
+  status: WishStatus;
+  adminNote?: string;
+  processedAt?: string;
+  processedBy?: string;
+}
+
+export const wishStatusLabels: Record<WishStatus, string> = {
+  pending: "待处理",
+  purchased: "已采购",
+  declined: "暂不采购",
+};
+
+export const wishStatusColors: Record<WishStatus, string> = {
+  pending: "#F59E0B",
+  purchased: "#10B981",
+  declined: "#6B7280",
+};

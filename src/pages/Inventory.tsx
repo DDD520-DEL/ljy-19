@@ -27,6 +27,9 @@ import {
   Package,
   Zap,
   Minus,
+  Heart,
+  Gem,
+  ExternalLink,
 } from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
@@ -38,6 +41,7 @@ import { useDutyStore } from "@/store/useDutyStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
+import { useWishListStore } from "@/store/useWishListStore";
 import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion, type RestockSuggestion } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStockStatus, timeAgo, getBatchExpiryInfo, formatExpiryStatus, formatDate, addDays } from "@/utils/date";
@@ -109,6 +113,7 @@ export default function Inventory() {
   const { getPendingSuggestions, markAsProcessed } = useVoteSuggestionStore();
   const { getMaterialRating } = useReviewStore();
   const { getRestockSuggestions } = useConsumptionStore();
+  const { getTopLikedWishes, toggleLike, hasUserLiked } = useWishListStore();
 
   const currentDutyUser = getCurrentDutyUser();
   const isCurrentDutyUser = currentUser && currentDutyUser && currentUser.id === currentDutyUser.id;
@@ -965,6 +970,105 @@ export default function Inventory() {
           </button>
         </div>
       )}
+
+      {(() => {
+        const topWishes = getTopLikedWishes(5);
+        if (topWishes.length === 0) return null;
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-br from-wish-50 via-orange-50 to-amber-50 border border-wish-200 rounded-2xl p-5 mb-6"
+          >
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-wish-500 to-orange-500 rounded-xl shadow-md">
+                  <Gem className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-coffee-800">心愿热榜</h3>
+                  <p className="text-sm text-coffee-500">
+                    同事们最希望新增的物资 · Top {topWishes.length}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/wishlist")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-wish-600 text-sm font-medium hover:bg-wish-100 transition-colors border border-wish-200"
+              >
+                查看全部
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {topWishes.map((wish, index) => {
+                const isLiked = currentUser ? hasUserLiked(wish.id, currentUser.id) : false;
+                const wishCreator = users.find((u) => u.id === wish.createdBy);
+                const rankColors = [
+                  "from-amber-400 to-yellow-500",
+                  "from-gray-300 to-gray-400",
+                  "from-amber-600 to-amber-700",
+                ];
+                const rankBg = index < 3 ? `bg-gradient-to-br ${rankColors[index]} text-white` : "bg-coffee-100 text-coffee-600";
+
+                return (
+                  <motion.div
+                    key={wish.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-wish-100 hover:border-wish-300 hover:shadow-sm transition-all"
+                  >
+                    <div className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0",
+                      rankBg
+                    )}>
+                      {index + 1}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-semibold text-coffee-800 truncate">{wish.name}</h4>
+                        {wish.recommendLink && (
+                          <a
+                            href={wish.recommendLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-shrink-0 p-1 rounded hover:bg-wish-100 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-wish-500" />
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-xs text-coffee-400 mt-0.5 truncate">
+                        {wishCreator?.name || "匿名"} · {wish.reason.slice(0, 30)}{wish.reason.length > 30 ? "..." : ""}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => currentUser && toggleLike(wish.id, currentUser.id)}
+                      disabled={!currentUser}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0",
+                        isLiked
+                          ? "bg-rose-500 text-white shadow-sm"
+                          : "bg-rose-50 text-rose-600 hover:bg-rose-100",
+                        !currentUser && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <Heart className={cn("w-3.5 h-3.5", isLiked && "fill-current")} />
+                      <span className="font-bold text-xs">{wish.likes.length}</span>
+                    </button>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        );
+      })()}
 
       <div className="bg-white rounded-2xl shadow-soft p-4 mb-6 space-y-3">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
