@@ -79,6 +79,8 @@ export default function Inventory() {
   const [sortBy, setSortBy] = useState<"default" | "rating_desc" | "rating_asc" | "review_count">("default");
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [suggestionQuantities, setSuggestionQuantities] = useState<Record<string, number>>({});
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchIndex, setBatchIndex] = useState(0);
 
   type SortOption = typeof sortBy;
 
@@ -174,6 +176,11 @@ export default function Inventory() {
       return;
     }
 
+    if (filteredRestockSuggestions.length === 0) {
+      showToast("暂无需要补货的物料建议", "info");
+      return;
+    }
+
     const totalCost = filteredRestockSuggestions.reduce((sum, s) => {
       const qty = getSuggestionQuantity(s.materialId, s.suggestedQuantity);
       return sum + qty * s.unitPrice;
@@ -184,13 +191,41 @@ export default function Inventory() {
       "success"
     );
 
-    if (filteredRestockSuggestions.length > 0) {
-      if (isAdmin) {
-        applySmartSuggestionToRestock(filteredRestockSuggestions[0]);
-      } else {
-        applySmartSuggestionToRequest(filteredRestockSuggestions[0]);
-      }
+    setBatchMode(true);
+    setBatchIndex(0);
+
+    const firstSuggestion = filteredRestockSuggestions[0];
+    if (isAdmin) {
+      applySmartSuggestionToRestock(firstSuggestion);
+    } else {
+      applySmartSuggestionToRequest(firstSuggestion);
     }
+  };
+
+  const handleNextBatchItem = () => {
+    const nextIndex = batchIndex + 1;
+    if (nextIndex >= filteredRestockSuggestions.length) {
+      setBatchMode(false);
+      setBatchIndex(0);
+      showToast("全部物料处理完成！", "success");
+      return;
+    }
+
+    setBatchIndex(nextIndex);
+    const nextSuggestion = filteredRestockSuggestions[nextIndex];
+    if (isAdmin) {
+      applySmartSuggestionToRestock(nextSuggestion);
+    } else {
+      applySmartSuggestionToRequest(nextSuggestion);
+    }
+  };
+
+  const cancelBatchMode = () => {
+    setBatchMode(false);
+    setBatchIndex(0);
+    setRestockModalOpen(false);
+    setRequestModalOpen(false);
+    showToast("已取消批量处理", "info");
   };
 
   const isAdmin = currentUser?.role === "admin";
@@ -351,6 +386,12 @@ export default function Inventory() {
       markAsProcessed(selectedSuggestion.id);
       setSelectedSuggestion(null);
     }
+
+    if (batchMode) {
+      setTimeout(() => {
+        handleNextBatchItem();
+      }, 500);
+    }
   };
 
   const handleSubmitRequest = () => {
@@ -384,6 +425,12 @@ export default function Inventory() {
     if (selectedSuggestion) {
       markAsProcessed(selectedSuggestion.id, requestId);
       setSelectedSuggestion(null);
+    }
+
+    if (batchMode) {
+      setTimeout(() => {
+        handleNextBatchItem();
+      }, 500);
     }
   };
 
@@ -902,18 +949,6 @@ export default function Inventory() {
               })}
             </AnimatePresence>
           </div>
-
-          {!showSuggestions && filteredRestockSuggestions.length > 0 && (
-            <div className="mt-3 text-center">
-              <button
-                onClick={() => setShowSuggestions(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
-              >
-                <Sparkles className="w-4 h-4" />
-                显示智能补货建议
-              </button>
-            </div>
-          )}
         </motion.div>
       )}
 
@@ -1432,11 +1467,36 @@ export default function Inventory() {
 
       <Modal
         isOpen={restockModalOpen}
-        onClose={() => setRestockModalOpen(false)}
-        title={`补货 - ${selectedMaterial?.name}`}
+        onClose={() => {
+          if (batchMode) {
+            cancelBatchMode();
+          } else {
+            setRestockModalOpen(false);
+          }
+        }}
+        title={batchMode ? `批量补货 (${batchIndex + 1}/${filteredRestockSuggestions.length}) - ${selectedMaterial?.name}` : `补货 - ${selectedMaterial?.name}`}
       >
         {selectedMaterial && (
           <div className="space-y-4">
+            {batchMode && (
+              <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-center gap-2 text-sm text-amber-700">
+                  <Zap className="w-4 h-4" />
+                  <span>
+                    批量处理中：第 <span className="font-bold">{batchIndex + 1}</span> / {filteredRestockSuggestions.length} 项
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 h-1.5 bg-amber-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all"
+                      style={{ width: `${((batchIndex + 1) / filteredRestockSuggestions.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-4 p-4 bg-coffee-50 rounded-xl">
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl"
@@ -1574,10 +1634,26 @@ export default function Inventory() {
               />
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <button onClick={handleRestock} className="w-full btn-success">
-                确认补货
+                {batchMode ? "确认补货，下一个" : "确认补货"}
               </button>
+              {batchMode && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleNextBatchItem}
+                    className="flex-1 py-2.5 text-sm font-medium text-coffee-600 bg-coffee-50 rounded-lg hover:bg-coffee-100 transition-colors"
+                  >
+                    跳过此项
+                  </button>
+                  <button
+                    onClick={cancelBatchMode}
+                    className="flex-1 py-2.5 text-sm font-medium text-danger-600 bg-danger-50 rounded-lg hover:bg-danger-100 transition-colors"
+                  >
+                    取消批量
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1585,11 +1661,36 @@ export default function Inventory() {
 
       <Modal
         isOpen={requestModalOpen}
-        onClose={() => setRequestModalOpen(false)}
-        title={`申请补货 - ${selectedMaterial?.name}`}
+        onClose={() => {
+          if (batchMode) {
+            cancelBatchMode();
+          } else {
+            setRequestModalOpen(false);
+          }
+        }}
+        title={batchMode ? `批量申请补货 (${batchIndex + 1}/${filteredRestockSuggestions.length}) - ${selectedMaterial?.name}` : `申请补货 - ${selectedMaterial?.name}`}
       >
         {selectedMaterial && (
           <div className="space-y-4">
+            {batchMode && (
+              <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-center gap-2 text-sm text-amber-700">
+                  <Zap className="w-4 h-4" />
+                  <span>
+                    批量处理中：第 <span className="font-bold">{batchIndex + 1}</span> / {filteredRestockSuggestions.length} 项
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 h-1.5 bg-amber-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all"
+                      style={{ width: `${((batchIndex + 1) / filteredRestockSuggestions.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
           <div className="flex items-center gap-4 p-4 bg-coffee-50 rounded-xl">
             <div
               className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl"
@@ -1642,11 +1743,29 @@ export default function Inventory() {
 
           <div className="pt-2 space-y-2">
             <button onClick={handleSubmitRequest} className="w-full btn-primary">
-              提交申请
+              {batchMode ? "提交申请，下一个" : "提交申请"}
             </button>
-            <p className="text-xs text-coffee-400 text-center">
-              提交后需管理员审批通过后才会生效
-            </p>
+            {batchMode && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleNextBatchItem}
+                  className="flex-1 py-2.5 text-sm font-medium text-coffee-600 bg-coffee-50 rounded-lg hover:bg-coffee-100 transition-colors"
+                >
+                  跳过此项
+                </button>
+                <button
+                  onClick={cancelBatchMode}
+                  className="flex-1 py-2.5 text-sm font-medium text-danger-600 bg-danger-50 rounded-lg hover:bg-danger-100 transition-colors"
+                >
+                  取消批量
+                </button>
+              </div>
+            )}
+            {!batchMode && (
+              <p className="text-xs text-coffee-400 text-center">
+                提交后需管理员审批通过后才会生效
+              </p>
+            )}
           </div>
         </div>
       )}
