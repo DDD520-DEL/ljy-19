@@ -32,14 +32,14 @@ const getAvatar = (name: string, index: number): string => {
 };
 
 export const mockUsers: User[] = [
-  { id: "user-1", name: "张小明", avatar: getAvatar("张", 0), role: "user", joinDate: "2024-01-15", monthlyBudget: 200 },
-  { id: "user-2", name: "李小红", avatar: getAvatar("李", 1), role: "user", joinDate: "2024-02-01", monthlyBudget: 200 },
-  { id: "user-3", name: "王小华", avatar: getAvatar("王", 2), role: "admin", joinDate: "2023-12-01", monthlyBudget: 300 },
-  { id: "user-4", name: "赵小刚", avatar: getAvatar("赵", 3), role: "user", joinDate: "2024-03-10", monthlyBudget: 200 },
-  { id: "user-5", name: "陈小美", avatar: getAvatar("陈", 4), role: "user", joinDate: "2024-01-20", monthlyBudget: 200 },
-  { id: "user-6", name: "刘大勇", avatar: getAvatar("刘", 5), role: "user", joinDate: "2024-02-15", monthlyBudget: 250 },
-  { id: "user-7", name: "周小芳", avatar: getAvatar("周", 6), role: "user", joinDate: "2024-04-01", monthlyBudget: 200 },
-  { id: "user-8", name: "吴小伟", avatar: getAvatar("吴", 7), role: "user", joinDate: "2024-03-20", monthlyBudget: 200 },
+  { id: "user-1", name: "张小明", avatar: getAvatar("张", 0), role: "user", joinDate: "2024-01-15", monthlyBudget: 200, status: "active" },
+  { id: "user-2", name: "李小红", avatar: getAvatar("李", 1), role: "user", joinDate: "2024-02-01", monthlyBudget: 200, status: "active" },
+  { id: "user-3", name: "王小华", avatar: getAvatar("王", 2), role: "admin", joinDate: "2023-12-01", monthlyBudget: 300, status: "active" },
+  { id: "user-4", name: "赵小刚", avatar: getAvatar("赵", 3), role: "user", joinDate: "2024-03-10", monthlyBudget: 200, status: "active" },
+  { id: "user-5", name: "陈小美", avatar: getAvatar("陈", 4), role: "user", joinDate: "2024-01-20", monthlyBudget: 200, status: "active" },
+  { id: "user-6", name: "刘大勇", avatar: getAvatar("刘", 5), role: "user", joinDate: "2024-02-15", monthlyBudget: 250, status: "active" },
+  { id: "user-7", name: "周小芳", avatar: getAvatar("周", 6), role: "user", joinDate: "2024-04-01", monthlyBudget: 200, status: "active" },
+  { id: "user-8", name: "吴小伟", avatar: getAvatar("吴", 7), role: "user", joinDate: "2024-03-20", monthlyBudget: 200, status: "active" },
 ];
 
 const generateMonthlyBudgets = (): UserMonthlyBudget[] => {

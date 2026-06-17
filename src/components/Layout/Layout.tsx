@@ -14,6 +14,7 @@ import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
 import { useReviewStore } from "@/store/useReviewStore";
+import { useInvitationStore } from "@/store/useInvitationStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -28,6 +29,7 @@ export default function Layout() {
   const { initSuggestions } = useVoteSuggestionStore();
   const { initGroupPurchases, checkAndSettleExpired } = useGroupPurchaseStore();
   const { initReviews } = useReviewStore();
+  const { initInvitationCodes } = useInvitationStore();
 
   useEffect(() => {
     initUsers();
@@ -40,6 +42,7 @@ export default function Layout() {
     initSuggestions();
     initGroupPurchases();
     initReviews();
+    initInvitationCodes();
   }, []);
 
   useEffect(() => {

@@ -10,6 +10,8 @@ import {
   Coffee,
   ClipboardCheck,
   Users,
+  Ticket,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
@@ -23,8 +25,9 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { getPendingCount } = useRestockRequestStore();
-  const { currentUser } = useUserStore();
+  const { currentUser, getPendingUsers } = useUserStore();
   const pendingCount = getPendingCount();
+  const pendingUserCount = getPendingUsers().length;
   const isAdmin = currentUser?.role === "admin";
 
   const navItems = [
@@ -37,6 +40,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: "/vote", label: "我想喝什么", icon: Vote },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },
+    ...(isAdmin
+      ? [
+          { path: "/invitations", label: "邀请码管理", icon: Ticket },
+          { path: "/users", label: "用户管理", icon: Shield, badge: pendingUserCount },
+        ]
+      : []),
     { path: "/profile", label: "个人中心", icon: User },
   ];
 

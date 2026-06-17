@@ -1,3 +1,5 @@
+export type UserStatus = "pending" | "active";
+
 export interface User {
   id: string;
   name: string;
@@ -6,6 +8,22 @@ export interface User {
   joinDate: string;
   email?: string;
   monthlyBudget: number;
+  status: UserStatus;
+}
+
+export type InvitationCodeStatus = "active" | "used" | "expired";
+
+export interface InvitationCode {
+  id: string;
+  code: string;
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+  status: InvitationCodeStatus;
+  usedBy?: string;
+  usedAt?: string;
+  registeredUserName?: string;
+  registeredUserEmail?: string;
 }
 
 export interface UserMonthlyBudget {
