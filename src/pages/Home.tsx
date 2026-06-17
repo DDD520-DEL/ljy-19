@@ -8,6 +8,7 @@ import Toast, { ToastType } from "@/components/Toast/Toast";
 import ReviewModal from "@/components/ReviewModal/ReviewModal";
 import AnnouncementBanner from "@/components/AnnouncementBanner/AnnouncementBanner";
 import AnnouncementDetail from "@/components/AnnouncementDetail/AnnouncementDetail";
+import CheckInCard from "@/components/CheckInCard/CheckInCard";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
@@ -172,6 +173,8 @@ export default function Home() {
       />
 
       <AnnouncementBanner onViewDetail={handleViewAnnouncement} />
+
+      <CheckInCard />
 
       <LowStockAlert />
 

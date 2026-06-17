@@ -14,11 +14,14 @@ import {
   Shield,
   Megaphone,
   Star,
+  CalendarCheck,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useWishListStore } from "@/store/useWishListStore";
+import { useCheckInStore } from "@/store/useCheckInStore";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -30,13 +33,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { getPendingCount } = useRestockRequestStore();
   const { currentUser, getPendingUsers } = useUserStore();
   const { getWishesByStatus } = useWishListStore();
+  const { hasCheckedInToday, getStreakDays } = useCheckInStore();
   const pendingCount = getPendingCount();
   const pendingUserCount = getPendingUsers().length;
   const pendingWishCount = getWishesByStatus("pending").length;
   const isAdmin = currentUser?.role === "admin";
+  const checkedInToday = currentUser ? hasCheckedInToday(currentUser.id) : false;
+  const streakDays = currentUser ? getStreakDays(currentUser.id) : 0;
 
   const navItems = [
     { path: "/", label: "首页", icon: Home },
+    { path: "/checkin", label: "每日签到", icon: CalendarCheck, badge: !checkedInToday ? 1 : 0, streak: streakDays },
     { path: "/inventory", label: "库存管理", icon: Package },
     ...(isAdmin || pendingCount > 0
       ? [{ path: "/restock-approval", label: "补货审批", icon: ClipboardCheck, badge: pendingCount }]
@@ -108,7 +115,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         : "text-coffee-600 hover:bg-coffee-50 hover:text-coffee-800"
                     )}
                   >
-                    <Icon className="w-5 h-5" />
+                    <div className="relative">
+                      <Icon className="w-5 h-5" />
+                      {"streak" in item && item.streak >= 3 && !isActive && (
+                        <Flame className="w-3 h-3 text-orange-500 absolute -top-1 -right-1" />
+                      )}
+                    </div>
                     <span className="font-medium">{item.label}</span>
                     {"badge" in item && item.badge > 0 && (
                       <span
@@ -122,7 +134,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         {item.badge > 99 ? "99+" : item.badge}
                       </span>
                     )}
-                    {isActive && !("badge" in item && item.badge > 0) && (
+                    {"streak" in item && item.streak > 0 && !("badge" in item && item.badge > 0) && isActive && (
+                      <span className="ml-auto flex items-center gap-0.5 px-2 py-0.5 bg-white/20 text-white text-xs font-bold rounded-full">
+                        <Flame className="w-3 h-3" />
+                        {item.streak}
+                      </span>
+                    )}
+                    {isActive && !(("badge" in item && item.badge > 0) || ("streak" in item && item.streak > 0)) && (
                       <motion.span
                         layoutId="activeIndicator"
                         className="ml-auto w-1.5 h-1.5 rounded-full bg-white"

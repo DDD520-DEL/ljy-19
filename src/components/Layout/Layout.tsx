@@ -17,6 +17,7 @@ import { useReviewStore } from "@/store/useReviewStore";
 import { useInvitationStore } from "@/store/useInvitationStore";
 import { useAnnouncementStore } from "@/store/useAnnouncementStore";
 import { useWishListStore } from "@/store/useWishListStore";
+import { useCheckInStore } from "@/store/useCheckInStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -34,6 +35,7 @@ export default function Layout() {
   const { initInvitationCodes } = useInvitationStore();
   const { initAnnouncements, checkAndUpdateExpired } = useAnnouncementStore();
   const { initWishes } = useWishListStore();
+  const { initCheckIns } = useCheckInStore();
 
   useEffect(() => {
     initUsers();
@@ -49,6 +51,7 @@ export default function Layout() {
     initInvitationCodes();
     initAnnouncements();
     initWishes();
+    initCheckIns();
   }, []);
 
   useEffect(() => {

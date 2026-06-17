@@ -13,6 +13,7 @@ import InvitationManagement from "@/pages/InvitationManagement";
 import UserManagement from "@/pages/UserManagement";
 import AnnouncementManagement from "@/pages/AnnouncementManagement";
 import Wishlist from "@/pages/Wishlist";
+import CheckIn from "@/pages/CheckIn";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="checkin" element={<CheckIn />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="restock-approval" element={<RestockApproval />} />
           <Route path="vote" element={<Vote />} />

@@ -19,15 +19,22 @@ import {
   PiggyBank,
   Star,
   MessageSquare,
+  Flame,
+  Trophy,
+  Award,
+  TrendingUp,
 } from "lucide-react";
 import UserSelector from "@/components/UserSelector/UserSelector";
+import CheckInCalendar from "@/components/CheckInCalendar/CheckInCalendar";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { useReviewStore } from "@/store/useReviewStore";
-import { formatCurrency, timeAgo } from "@/utils/date";
+import { useCheckInStore } from "@/store/useCheckInStore";
+import { badgeConfigs } from "@/types";
+import { formatCurrency, timeAgo, formatDate } from "@/utils/date";
 import { categoryLabels, type MaterialCategory, type RestockRequestStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -40,9 +47,11 @@ export default function Profile() {
   const { getRequestsByApplicant } = useRestockRequestStore();
   const { getUserBudgetInfo } = useBudgetStore();
   const { getReviewsByUser } = useReviewStore();
+  const { getUserStats: getCheckInStats } = useCheckInStore();
 
   const userStats = currentUser ? getUserStats(currentUser.id) : null;
   const userBudgetInfo = currentUser ? getUserBudgetInfo(currentUser.id) : null;
+  const checkInStats = currentUser ? getCheckInStats(currentUser.id) : null;
   const monthlyConsumptions = currentUser
     ? getMonthlyConsumptions(currentUser.id).slice(0, 10)
     : [];
@@ -115,6 +124,20 @@ export default function Profile() {
       color: "text-violet-500",
       bg: "bg-violet-100",
     },
+    {
+      icon: Flame,
+      label: "连续签到",
+      value: `${checkInStats?.currentStreak || 0} 天`,
+      color: checkInStats && checkInStats.currentStreak >= 3 ? "text-orange-500" : "text-amber-500",
+      bg: checkInStats && checkInStats.currentStreak >= 3 ? "bg-orange-100" : "bg-amber-100",
+    },
+    {
+      icon: Trophy,
+      label: "获得徽章",
+      value: `${checkInStats?.badges.length || 0} 枚`,
+      color: "text-amber-500",
+      bg: "bg-amber-100",
+    },
   ];
 
   return (
@@ -166,7 +189,7 @@ export default function Profile() {
         </div>
 
         {/* 快速统计 */}
-        <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/20">
+        <div className="grid grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/20">
           <div className="text-center">
             <p className="text-2xl font-bold">{userStats?.totalConsumptions || 0}</p>
             <p className="text-xs text-white/70 mt-1">本月杯数</p>
@@ -175,11 +198,19 @@ export default function Profile() {
             <p className="text-2xl font-bold">{formatCurrency(userStats?.totalCost || 0)}</p>
             <p className="text-xs text-white/70 mt-1">本月费用</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">
-              {Object.values(userStats?.byCategory || {}).filter((v) => v > 0).length}
+          <div className="text-center border-r border-white/20">
+            <p className="text-2xl font-bold flex items-center justify-center gap-1">
+              {checkInStats?.currentStreak || 0}
+              <Flame className="w-4 h-4 text-orange-300" />
             </p>
-            <p className="text-xs text-white/70 mt-1">品类数</p>
+            <p className="text-xs text-white/70 mt-1">连续签到</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold flex items-center justify-center gap-1">
+              {checkInStats?.badges.length || 0}
+              <Trophy className="w-4 h-4 text-amber-300" />
+            </p>
+            <p className="text-xs text-white/70 mt-1">获得徽章</p>
           </div>
         </div>
 
@@ -296,11 +327,122 @@ export default function Profile() {
         </div>
       </motion.div>
 
-      {/* 消费明细 */}
+      {/* 我的徽章 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className="bg-white rounded-2xl shadow-soft p-6 mb-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500" />
+            <h3 className="font-bold text-coffee-800">我的徽章</h3>
+          </div>
+          <span className="text-xs text-coffee-400">
+            {checkInStats?.badges.length || 0} / {Object.keys(badgeConfigs).length}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {Object.values(badgeConfigs).map((config, index) => {
+            const unlocked = checkInStats?.badges.find((b) => b.type === config.type);
+            const isUnlocked = !!unlocked;
+            return (
+              <motion.div
+                key={config.type}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25 + index * 0.05 }}
+                className={cn(
+                  "flex items-center gap-3 p-4 rounded-xl border transition-all",
+                  isUnlocked
+                    ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200"
+                    : "bg-coffee-50 border-coffee-100 opacity-60"
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0",
+                    isUnlocked ? "" : "grayscale"
+                  )}
+                  style={{ backgroundColor: isUnlocked ? config.color + "20" : undefined }}
+                >
+                  {config.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p
+                      className={cn(
+                        "font-semibold truncate",
+                        isUnlocked ? "text-coffee-800" : "text-coffee-500"
+                      )}
+                    >
+                      {config.name}
+                    </p>
+                    {isUnlocked && (
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-xs text-coffee-500">
+                    {isUnlocked && unlocked?.unlockedAt
+                      ? `解锁于 ${formatDate(unlocked.unlockedAt, "YYYY-MM-DD")}`
+                      : config.description}
+                  </p>
+                </div>
+                {isUnlocked && (
+                  <Award className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* 签到统计 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.28 }}
+        className="grid grid-cols-3 gap-4 mb-6"
+      >
+        <div className="bg-white rounded-2xl shadow-soft p-5 text-center">
+          <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-coffee-100 flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-coffee-600" />
+          </div>
+          <p className="text-2xl font-bold text-coffee-800">{checkInStats?.totalCheckIns || 0}</p>
+          <p className="text-xs text-coffee-500 mt-1">累计签到</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-soft p-5 text-center">
+          <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-orange-100 flex items-center justify-center">
+            <Flame className="w-5 h-5 text-orange-600" />
+          </div>
+          <p className="text-2xl font-bold text-coffee-800">{checkInStats?.currentStreak || 0}</p>
+          <p className="text-xs text-coffee-500 mt-1">当前连续</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-soft p-5 text-center">
+          <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-matcha-100 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5 text-matcha-600" />
+          </div>
+          <p className="text-2xl font-bold text-coffee-800">{checkInStats?.longestStreak || 0}</p>
+          <p className="text-xs text-coffee-500 mt-1">最长连续</p>
+        </div>
+      </motion.div>
+
+      {/* 签到日历 */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
+        className="mb-6"
+      >
+        <CheckInCalendar />
+      </motion.div>
+
+      {/* 消费明细 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.32 }}
         className="bg-white rounded-2xl shadow-soft overflow-hidden mb-6"
       >
         <div className="px-6 py-4 border-b border-coffee-100 flex items-center justify-between">

@@ -357,3 +357,42 @@ export const wishStatusColors: Record<WishStatus, string> = {
   purchased: "#10B981",
   declined: "#6B7280",
 };
+
+export interface CheckInRecord {
+  id: string;
+  userId: string;
+  date: string;
+  timestamp: string;
+}
+
+export type BadgeType = "drink_master";
+
+export interface Badge {
+  type: BadgeType;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  unlockedAt?: string;
+}
+
+export interface UserCheckInStats {
+  userId: string;
+  totalCheckIns: number;
+  currentStreak: number;
+  longestStreak: number;
+  badges: Badge[];
+  lastCheckInDate: string | null;
+}
+
+export const badgeConfigs: Record<BadgeType, Omit<Badge, "unlockedAt">> = {
+  drink_master: {
+    type: "drink_master",
+    name: "饮者达人",
+    description: "连续签到 7 天解锁",
+    icon: "🏆",
+    color: "#F59E0B",
+  },
+};
+
+export const STREAK_FOR_DRINK_MASTER = 7;

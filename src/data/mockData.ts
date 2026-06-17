@@ -9,6 +9,8 @@ import type {
   Restock,
   UserMonthlyBudget,
   Batch,
+  CheckInRecord,
+  Announcement,
 } from "../types";
 import { generateId, getStartOfWeek, getEndOfWeek, formatDate, addDays } from "../utils/date";
 
@@ -441,8 +443,6 @@ export const getCurrentDutyUser = (): User | undefined => {
   return mockUsers.find((u) => u.id === currentDuty.userId);
 };
 
-import type { Announcement } from "../types";
-
 const generateAnnouncements = (): Announcement[] => {
   const now = new Date();
   const adminUserId = mockUsers[2].id;
@@ -512,3 +512,44 @@ const generateAnnouncements = (): Announcement[] => {
 };
 
 export const mockAnnouncements: Announcement[] = generateAnnouncements();
+
+const generateCheckIns = (): CheckInRecord[] => {
+  const checkIns: CheckInRecord[] = [];
+  const now = new Date();
+
+  mockUsers.forEach((user) => {
+    const streakDays = Math.floor(Math.random() * 15) + 1;
+    const hasBreak = Math.random() > 0.5;
+
+    for (let day = 29; day >= 0; day--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - day);
+
+      let shouldCheckIn = false;
+      if (day < streakDays) {
+        shouldCheckIn = true;
+      } else if (hasBreak && day >= streakDays && day < streakDays + 3) {
+        shouldCheckIn = false;
+      } else {
+        shouldCheckIn = Math.random() > 0.35;
+      }
+
+      if (shouldCheckIn) {
+        const hour = 8 + Math.floor(Math.random() * 10);
+        const minute = Math.floor(Math.random() * 60);
+        date.setHours(hour, minute, 0, 0);
+
+        checkIns.push({
+          id: generateId(),
+          userId: user.id,
+          date: formatDate(date, "YYYY-MM-DD"),
+          timestamp: date.toISOString(),
+        });
+      }
+    }
+  });
+
+  return checkIns.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};
+
+export const mockCheckIns: CheckInRecord[] = generateCheckIns();
