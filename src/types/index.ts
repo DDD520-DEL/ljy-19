@@ -103,6 +103,31 @@ export interface DutySchedule {
   weekStart: string;
   weekEnd: string;
   isCurrent: boolean;
+  handoverCompleted: boolean;
+  handoverCompletedAt?: string;
+}
+
+export interface DutyHandoverRecord {
+  id: string;
+  scheduleId: string;
+  userId: string;
+  weekStart: string;
+  weekEnd: string;
+  tasks: {
+    inventoryCheck: boolean;
+    pantryCleanup: boolean;
+    equipmentCheck: boolean;
+    otherTasks: string;
+  };
+  notes: string;
+  confirmedAt: string;
+  nextUserId: string;
+}
+
+export interface DutyBannerState {
+  showBanner: boolean;
+  bannerType: "update" | "pending";
+  message: string;
 }
 
 export type StockStatus = "sufficient" | "low" | "critical";

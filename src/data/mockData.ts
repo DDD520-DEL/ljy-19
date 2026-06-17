@@ -409,8 +409,6 @@ export const mockVoteRecords: VoteRecord[] = generateVoteRecords();
 const generateDutySchedule = (): DutySchedule[] => {
   const schedules: DutySchedule[] = [];
   const today = new Date();
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - 28);
 
   for (let week = -4; week < 5; week++) {
     const weekStart = new Date(today);
@@ -426,6 +424,7 @@ const generateDutySchedule = (): DutySchedule[] => {
       weekStart: formatDate(startOfWeek, "YYYY-MM-DD"),
       weekEnd: formatDate(endOfWeek, "YYYY-MM-DD"),
       isCurrent: week === 0,
+      handoverCompleted: week < 0,
     });
   }
 

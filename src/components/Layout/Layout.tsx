@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import DutyBanner from "@/components/DutyBanner/DutyBanner";
 import { useUserStore } from "@/store/useUserStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useConsumptionStore, setMaterialsCache, setUsersCache } from "@/store/useConsumptionStore";
@@ -21,7 +22,7 @@ export default function Layout() {
   const { initConsumptions } = useConsumptionStore();
   const { initBudgets } = useBudgetStore();
   const { initVote, checkVoteExpiry } = useVoteStore();
-  const { initDuty } = useDutyStore();
+  const { initDuty, checkAndRotateDuty } = useDutyStore();
   const { initRequests } = useRestockRequestStore();
   const { initSuggestions } = useVoteSuggestionStore();
   const { initGroupPurchases, checkAndSettleExpired } = useGroupPurchaseStore();
@@ -42,10 +43,11 @@ export default function Layout() {
     const timer = setInterval(() => {
       checkVoteExpiry();
       checkAndSettleExpired();
+      checkAndRotateDuty();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, [checkVoteExpiry, checkAndSettleExpired]);
+  }, [checkVoteExpiry, checkAndSettleExpired, checkAndRotateDuty]);
 
   useEffect(() => {
     if (materials.length > 0) {
@@ -71,6 +73,7 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} />
+        <DutyBanner />
 
         <main className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
