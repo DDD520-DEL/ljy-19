@@ -102,6 +102,7 @@ export default function GroupBuy() {
   };
 
   const handleJoin = (r: GroupBuyReservation) => {
+    setShowDetailModal(false);
     setSelected(r);
     setShowJoinModal(true);
   };
