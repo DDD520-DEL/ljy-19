@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   UserPlus,
   Mail,
-  User,
+  User as UserIcon,
   Ticket,
   ArrowLeft,
   Coffee,
@@ -16,6 +16,7 @@ import { useInvitationStore } from "@/store/useInvitationStore";
 import { useUserStore } from "@/store/useUserStore";
 import Toast from "@/components/Toast/Toast";
 import { cn } from "@/lib/utils";
+import type { User } from "@/types";
 
 type ToastState = {
   isVisible: boolean;
@@ -31,7 +32,7 @@ export default function Register() {
   const codeFromUrl = searchParams.get("code") || "";
 
   const { validateInvitationCode, useInvitationCode: consumeInvitationCode, initInvitationCodes } = useInvitationStore();
-  const { registerUser, initUsers } = useUserStore();
+  const { registerUser, removeUser, initUsers } = useUserStore();
 
   const [step, setStep] = useState<Step>("validate");
   const [invitationCode, setInvitationCode] = useState(codeFromUrl);
@@ -107,20 +108,34 @@ export default function Register() {
 
     setIsLoading(true);
 
+    let createdUser: User | null = null;
     try {
-      const newUser = registerUser(name.trim(), email.trim());
-      const useSuccess = consumeInvitationCode(validatedCode, newUser.id, newUser.name, newUser.email || "");
+      createdUser = registerUser(name.trim(), email.trim());
+
+      const useSuccess = consumeInvitationCode(
+        validatedCode,
+        createdUser.id,
+        createdUser.name,
+        createdUser.email || ""
+      );
 
       if (!useSuccess) {
-        showToast("邀请码使用失败，请重试", "error");
-        setIsLoading(false);
+        if (createdUser) {
+          removeUser(createdUser.id);
+          createdUser = null;
+        }
+        showToast("邀请码使用失败，已撤销注册，请重试", "error");
         return;
       }
 
       setStep("success");
       showToast("注册成功！等待管理员审核", "success");
     } catch {
-      showToast("注册失败，请重试", "error");
+      if (createdUser) {
+        removeUser(createdUser.id);
+        createdUser = null;
+      }
+      showToast("注册失败，已撤销本次操作，请重试", "error");
     } finally {
       setIsLoading(false);
     }
@@ -256,7 +271,7 @@ export default function Register() {
                     姓名
                   </label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-coffee-400" />
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-coffee-400" />
                     <input
                       type="text"
                       value={name}

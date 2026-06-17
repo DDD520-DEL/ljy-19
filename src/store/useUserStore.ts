@@ -32,6 +32,7 @@ interface UserState {
   getPendingUsers: () => User[];
   getActiveUsers: () => User[];
   registerUser: (name: string, email: string) => User;
+  removeUser: (userId: string) => void;
   approveUser: (userId: string) => void;
   updateUserRole: (userId: string, role: "user" | "admin") => void;
   updateUserBudget: (userId: string, budget: number) => void;
@@ -77,6 +78,24 @@ export const useUserStore = create<UserState>((set, get) => ({
     set({ users: updatedUsers });
     storage.set("users", updatedUsers);
     return newUser;
+  },
+
+  removeUser: (userId: string) => {
+    const { users, currentUserId } = get();
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return;
+
+    const updatedUsers = users.filter((u) => u.id !== userId);
+    set({
+      users: updatedUsers,
+      currentUser: currentUserId === userId ? null : get().currentUser,
+      currentUserId: currentUserId === userId ? null : currentUserId,
+    });
+    storage.set("users", updatedUsers);
+
+    if (currentUserId === userId) {
+      storage.remove("currentUserId");
+    }
   },
 
   approveUser: (userId: string) => {

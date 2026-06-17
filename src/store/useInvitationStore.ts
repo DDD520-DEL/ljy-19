@@ -3,13 +3,22 @@ import type { InvitationCode, InvitationCodeStatus } from "../types";
 import { generateId, addDays } from "../utils/date";
 import { storage } from "../utils/storage";
 
-const generateInvitationCode = (): string => {
+const MAX_GENERATE_RETRIES = 50;
+
+const generateInvitationCode = (existingCodes: Set<string>): string => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let result = "";
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let attempt = 0; attempt < MAX_GENERATE_RETRIES; attempt++) {
+    let result = "";
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    if (!existingCodes.has(result)) {
+      return result;
+    }
   }
-  return result;
+  const suffix = Date.now().toString(36).toUpperCase().slice(-4).padStart(4, "0");
+  const prefix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return prefix + suffix;
 };
 
 const checkAndUpdateExpiredCodes = (codes: InvitationCode[]): InvitationCode[] => {
@@ -36,11 +45,14 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
   invitationCodes: [],
 
   createInvitationCode: (createdBy: string) => {
+    const existingCodes = new Set(
+      get().invitationCodes.map((c) => c.code)
+    );
     const now = new Date();
     const expiresAt = addDays(now, 1);
     const newCode: InvitationCode = {
       id: generateId(),
-      code: generateInvitationCode(),
+      code: generateInvitationCode(existingCodes),
       createdBy,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
