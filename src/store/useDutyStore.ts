@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DutySchedule, User, DutyHandoverRecord, DutyBannerState } from "../types";
+import type { DutySchedule, User, DutyHandoverRecord, DutyBannerState, DutySingleBanner } from "../types";
 import { mockDutySchedule, mockUsers } from "../data/mockData";
 import { storage } from "../utils/storage";
 import { generateId, getStartOfWeek, getEndOfWeek, formatDate } from "../utils/date";
@@ -30,8 +30,9 @@ interface DutyState {
     notes: string
   ) => boolean;
 
-  dismissBanner: () => void;
+  dismissBanner: (type: "update" | "pending") => void;
   checkPendingHandover: () => void;
+  showUpdateBanner: (message: string) => void;
 
   initDuty: () => void;
   persist: () => void;
@@ -45,13 +46,18 @@ const initializeSchedulesWithHandover = (schedules: DutySchedule[]): DutySchedul
   }));
 };
 
+const createEmptyBanner = (): DutySingleBanner => ({
+  visible: false,
+  message: "",
+  dismissed: false,
+});
+
 export const useDutyStore = create<DutyState>((set, get) => ({
   schedules: [],
   handoverRecords: [],
   bannerState: {
-    showBanner: false,
-    bannerType: "update",
-    message: "",
+    update: createEmptyBanner(),
+    pending: createEmptyBanner(),
   },
   lastRotationCheck: null,
 
@@ -96,6 +102,19 @@ export const useDutyStore = create<DutyState>((set, get) => ({
     );
   },
 
+  showUpdateBanner: (message: string) => {
+    set((state) => ({
+      bannerState: {
+        ...state.bannerState,
+        update: {
+          visible: true,
+          message,
+          dismissed: false,
+        },
+      },
+    }));
+  },
+
   checkAndRotateDuty: () => {
     const state = get();
     const now = new Date();
@@ -103,6 +122,7 @@ export const useDutyStore = create<DutyState>((set, get) => ({
 
     const lastCheck = state.lastRotationCheck;
     if (lastCheck === todayStr) {
+      state.checkPendingHandover();
       return;
     }
 
@@ -110,6 +130,7 @@ export const useDutyStore = create<DutyState>((set, get) => ({
     if (!currentSchedule) {
       set({ lastRotationCheck: todayStr });
       state.persist();
+      state.checkPendingHandover();
       return;
     }
 
@@ -160,9 +181,12 @@ export const useDutyStore = create<DutyState>((set, get) => ({
         schedules,
         lastRotationCheck: todayStr,
         bannerState: {
-          showBanner: true,
-          bannerType: "update",
-          message: `本周值班已更新，本周值班人：${newDutyUser?.name || "未安排"}`,
+          ...state.bannerState,
+          update: {
+            visible: true,
+            message: `本周值班已更新，本周值班人：${newDutyUser?.name || "未安排"}`,
+            dismissed: false,
+          },
         },
       });
       state.persist();
@@ -219,9 +243,12 @@ export const useDutyStore = create<DutyState>((set, get) => ({
       schedules,
       handoverRecords,
       bannerState: {
-        showBanner: false,
-        bannerType: "update",
-        message: "",
+        ...state.bannerState,
+        pending: {
+          visible: false,
+          message: "",
+          dismissed: false,
+        },
       },
     });
 
@@ -229,14 +256,17 @@ export const useDutyStore = create<DutyState>((set, get) => ({
     return true;
   },
 
-  dismissBanner: () => {
-    set({
+  dismissBanner: (type: "update" | "pending") => {
+    set((state) => ({
       bannerState: {
-        showBanner: false,
-        bannerType: "update",
-        message: "",
+        ...state.bannerState,
+        [type]: {
+          ...state.bannerState[type],
+          visible: false,
+          dismissed: true,
+        },
       },
-    });
+    }));
   },
 
   checkPendingHandover: () => {
@@ -246,13 +276,34 @@ export const useDutyStore = create<DutyState>((set, get) => ({
 
     if (pending && currentUser) {
       const previousUser = mockUsers.find(u => u.id === pending.userId);
-      set({
-        bannerState: {
-          showBanner: true,
-          bannerType: "pending",
-          message: `⚠️ ${previousUser?.name || "上一位值班人"}尚未完成交接，请提醒其完成交接确认`,
-        },
-      });
+      const message = `⚠️ ${previousUser?.name || "上一位值班人"}尚未完成交接，请提醒其完成交接确认`;
+      const alreadyShown = state.bannerState.pending.message === message && state.bannerState.pending.dismissed;
+
+      if (!alreadyShown) {
+        set((s) => ({
+          bannerState: {
+            ...s.bannerState,
+            pending: {
+              visible: true,
+              message,
+              dismissed: false,
+            },
+          },
+        }));
+      }
+    } else {
+      if (state.bannerState.pending.visible) {
+        set((s) => ({
+          bannerState: {
+            ...s.bannerState,
+            pending: {
+              visible: false,
+              message: "",
+              dismissed: false,
+            },
+          },
+        }));
+      }
     }
   },
 
@@ -275,6 +326,10 @@ export const useDutyStore = create<DutyState>((set, get) => ({
       schedules: initializedSchedules,
       handoverRecords: savedHandoverRecords || [],
       lastRotationCheck: savedLastCheck,
+      bannerState: {
+        update: createEmptyBanner(),
+        pending: createEmptyBanner(),
+      },
     });
 
     if (!savedSchedules) {

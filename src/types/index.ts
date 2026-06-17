@@ -124,10 +124,15 @@ export interface DutyHandoverRecord {
   nextUserId: string;
 }
 
-export interface DutyBannerState {
-  showBanner: boolean;
-  bannerType: "update" | "pending";
+export interface DutySingleBanner {
+  visible: boolean;
   message: string;
+  dismissed: boolean;
+}
+
+export interface DutyBannerState {
+  update: DutySingleBanner;
+  pending: DutySingleBanner;
 }
 
 export type StockStatus = "sufficient" | "low" | "critical";
