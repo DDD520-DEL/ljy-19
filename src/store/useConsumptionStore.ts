@@ -6,6 +6,7 @@ import { generateId, isSameMonth, getStartOfMonth, getEndOfMonth } from "../util
 import { setBudgetConsumptionsCache } from "./useBudgetStore";
 
 let materialsCache: Material[] = mockMaterials;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let usersCache: User[] = mockUsers;
 
 export const setMaterialsCache = (materials: Material[]) => {
@@ -16,6 +17,13 @@ export const setUsersCache = (users: User[]) => {
   usersCache = users;
 };
 
+interface ExportFilters {
+  startDate?: Date;
+  endDate?: Date;
+  userIds?: string[];
+  categories?: MaterialCategory[];
+}
+
 interface ConsumptionState {
   consumptions: Consumption[];
   addConsumption: (userId: string, materialId: string, quantity: number) => Consumption;
@@ -25,6 +33,7 @@ interface ConsumptionState {
   getMonthlyStats: (date?: Date) => MonthlyStats;
   getTopUsers: (date?: Date, limit?: number) => { userId: string; total: number; cost: number }[];
   getCategoryStats: (date?: Date) => Record<MaterialCategory, number>;
+  getConsumptionsByFilters: (filters: ExportFilters) => Consumption[];
   initConsumptions: () => void;
 }
 
@@ -174,6 +183,32 @@ export const useConsumptionStore = create<ConsumptionState>((set, get) => ({
     });
 
     return stats;
+  },
+
+  getConsumptionsByFilters: (filters: ExportFilters) => {
+    const { startDate, endDate, userIds, categories } = filters;
+    const materials = materialsCache;
+
+    return get().consumptions.filter((c) => {
+      if (startDate) {
+        const d = new Date(c.timestamp);
+        if (d < startDate) return false;
+      }
+      if (endDate) {
+        const d = new Date(c.timestamp);
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (d > endOfDay) return false;
+      }
+      if (userIds && userIds.length > 0) {
+        if (!userIds.includes(c.userId)) return false;
+      }
+      if (categories && categories.length > 0) {
+        const material = materials.find((m) => m.id === c.materialId);
+        if (!material || !categories.includes(material.category)) return false;
+      }
+      return true;
+    });
   },
 
   initConsumptions: () => {

@@ -17,6 +17,13 @@ type BatchWithMaterial = Batch & {
   expiryInfo: ReturnType<typeof getBatchExpiryInfo>;
 };
 
+interface RestockExportFilters {
+  startDate?: Date;
+  endDate?: Date;
+  operatorIds?: string[];
+  categories?: MaterialCategory[];
+}
+
 interface MaterialState {
   materials: Material[];
   restocks: Restock[];
@@ -52,6 +59,7 @@ interface MaterialState {
   ) => void;
   updateThreshold: (materialId: string, threshold: number) => void;
   recalculateMaterialStock: (materialId: string) => void;
+  getRestocksByFilters: (filters: RestockExportFilters) => Restock[];
   initMaterials: () => void;
 }
 
@@ -356,6 +364,32 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
 
     set({ materials: updatedMaterials });
     storage.set("materials", updatedMaterials);
+  },
+
+  getRestocksByFilters: (filters: RestockExportFilters) => {
+    const { startDate, endDate, operatorIds, categories } = filters;
+    const materials = get().materials;
+
+    return get().restocks.filter((r) => {
+      if (startDate) {
+        const d = new Date(r.timestamp);
+        if (d < startDate) return false;
+      }
+      if (endDate) {
+        const d = new Date(r.timestamp);
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (d > endOfDay) return false;
+      }
+      if (operatorIds && operatorIds.length > 0) {
+        if (!operatorIds.includes(r.operatorId)) return false;
+      }
+      if (categories && categories.length > 0) {
+        const material = materials.find((m) => m.id === r.materialId);
+        if (!material || !categories.includes(material.category)) return false;
+      }
+      return true;
+    });
   },
 
   initMaterials: () => {
