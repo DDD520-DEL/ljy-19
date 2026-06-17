@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Package,
   Plus,
   AlertTriangle,
   TrendingUp,
@@ -20,6 +19,8 @@ import {
   Calendar,
   AlertOctagon,
   X,
+  Star,
+  ArrowUpDown,
 } from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
@@ -29,7 +30,8 @@ import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { useDutyStore } from "@/store/useDutyStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
-import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion, type Batch } from "@/types";
+import { useReviewStore } from "@/store/useReviewStore";
+import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStockStatus, timeAgo, getBatchExpiryInfo, formatExpiryStatus, formatDate, addDays } from "@/utils/date";
 
@@ -67,6 +69,16 @@ export default function Inventory() {
   const [showBudgetManagement, setShowBudgetManagement] = useState(false);
   const [expandedMaterials, setExpandedMaterials] = useState<Set<string>>(new Set());
   const [restockBatches, setRestockBatches] = useState<RestockBatchInput[]>([]);
+  const [sortBy, setSortBy] = useState<"default" | "rating_desc" | "rating_asc" | "review_count">("default");
+
+  type SortOption = typeof sortBy;
+
+  const sortOptions: { key: SortOption; label: string; icon: string }[] = [
+    { key: "default", label: "默认排序", icon: "📋" },
+    { key: "rating_desc", label: "评分从高到低", icon: "⭐" },
+    { key: "rating_asc", label: "评分从低到高", icon: "📉" },
+    { key: "review_count", label: "评价数量", icon: "💬" },
+  ];
 
   const {
     materials,
@@ -84,6 +96,7 @@ export default function Inventory() {
   const { setUserBudget, getAllUserBudgetInfos } = useBudgetStore();
   const { getCurrentDutyUser } = useDutyStore();
   const { getPendingSuggestions, markAsProcessed } = useVoteSuggestionStore();
+  const { getMaterialRating } = useReviewStore();
 
   const currentDutyUser = getCurrentDutyUser();
   const isCurrentDutyUser = currentUser && currentDutyUser && currentUser.id === currentDutyUser.id;
@@ -98,6 +111,24 @@ export default function Inventory() {
     activeCategory === "all"
       ? materials
       : materials.filter((m) => m.category === activeCategory);
+
+  const sortedMaterials = [...filteredMaterials].sort((a, b) => {
+    const ratingA = getMaterialRating(a.id);
+    const ratingB = getMaterialRating(b.id);
+
+    switch (sortBy) {
+      case "rating_desc":
+        return ratingB.averageRating - ratingA.averageRating || ratingB.reviewCount - ratingA.reviewCount;
+      case "rating_asc":
+        if (ratingA.reviewCount === 0 && ratingB.reviewCount > 0) return 1;
+        if (ratingB.reviewCount === 0 && ratingA.reviewCount > 0) return -1;
+        return ratingA.averageRating - ratingB.averageRating;
+      case "review_count":
+        return ratingB.reviewCount - ratingA.reviewCount;
+      default:
+        return 0;
+    }
+  });
 
   const lowStockMaterials = getLowStockMaterials();
 
@@ -571,7 +602,7 @@ export default function Inventory() {
         </motion.div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-soft p-4 mb-6">
+      <div className="bg-white rounded-2xl shadow-soft p-4 mb-6 space-y-3">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {categoryTabs.map((cat) => (
             <motion.button
@@ -589,6 +620,30 @@ export default function Inventory() {
               <span>{cat.label}</span>
             </motion.button>
           ))}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm text-coffee-500">
+            <ArrowUpDown className="w-4 h-4" />
+            <span>排序：</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap overflow-x-auto scrollbar-hide">
+            {sortOptions.map((option) => (
+              <motion.button
+                key={option.key}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSortBy(option.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200",
+                  sortBy === option.key
+                    ? "bg-amber-500 text-white shadow-soft"
+                    : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                )}
+              >
+                <span>{option.icon}</span>
+                <span>{option.label}</span>
+              </motion.button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -723,6 +778,9 @@ export default function Inventory() {
                       单价
                     </th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-coffee-700">
+                      评分
+                    </th>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-coffee-700">
                       状态
                     </th>
                     <th className="text-right px-6 py-4 text-sm font-semibold text-coffee-700">
@@ -731,13 +789,14 @@ export default function Inventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMaterials.map((material, index) => {
+                  {sortedMaterials.map((material, index) => {
                     const usableStock = getUsableStock(material.id);
                     const status = getStatusBadge(usableStock, material.threshold);
                     const pendingRequests = getPendingRequestsForMaterial(material.id);
                     const isExpanded = expandedMaterials.has(material.id);
                     const sortedBatches = getSortedBatchesByExpiry(material.id);
                     const hasExpired = sortedBatches.some(b => b.expiryInfo.isExpired && b.batch.remainingQuantity > 0);
+                    const rating = getMaterialRating(material.id);
 
                     return (
                       <>
@@ -825,6 +884,35 @@ export default function Inventory() {
                             {formatCurrency(material.unitPrice)}/{material.unit}
                           </td>
                           <td className="px-6 py-4">
+                            {rating.reviewCount > 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Star
+                                        key={star}
+                                        className={cn(
+                                          "w-3.5 h-3.5 flex-shrink-0",
+                                          star <= Math.round(rating.averageRating)
+                                            ? "text-amber-400 fill-amber-400"
+                                            : "text-coffee-200"
+                                        )}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-sm font-semibold text-amber-600">
+                                    {rating.averageRating.toFixed(1)}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-coffee-400">
+                                  {rating.reviewCount} 条评价
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-coffee-300">暂无评价</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
                             <span className={cn("badge text-xs font-medium", status.className)}>
                               {status.label}
                             </span>
@@ -860,7 +948,7 @@ export default function Inventory() {
                               exit={{ opacity: 0, height: 0 }}
                               className="bg-coffee-50/20"
                             >
-                              <td colSpan={8} className="px-6 py-3">
+                              <td colSpan={9} className="px-6 py-3">
                                 <div className="ml-16 overflow-hidden rounded-xl border border-coffee-100 bg-white">
                                   <table className="w-full text-sm">
                                     <thead>

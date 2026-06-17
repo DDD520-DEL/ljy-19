@@ -219,6 +219,22 @@ export interface MonthlyStats {
   byMaterial: Record<string, number>;
 }
 
+export interface Review {
+  id: string;
+  userId: string;
+  materialId: string;
+  consumptionId: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  comment?: string;
+  timestamp: string;
+}
+
+export interface MaterialRatingSummary {
+  materialId: string;
+  averageRating: number;
+  reviewCount: number;
+}
+
 export const categoryLabels: Record<MaterialCategory, string> = {
   coffee: "咖啡豆",
   tea: "茶包",

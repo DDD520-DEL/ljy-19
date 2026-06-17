@@ -5,12 +5,14 @@ import MaterialCard from "@/components/MaterialCard/MaterialCard";
 import LowStockAlert from "@/components/LowStockAlert/LowStockAlert";
 import StatsCard from "@/components/StatsCard/StatsCard";
 import Toast, { ToastType } from "@/components/Toast/Toast";
+import ReviewModal from "@/components/ReviewModal/ReviewModal";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
-import { type MaterialCategory } from "@/types";
+import { useReviewStore } from "@/store/useReviewStore";
+import { type MaterialCategory, type Material, type Consumption } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
 
@@ -27,12 +29,19 @@ export default function Home() {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<ToastType>("success");
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [pendingReview, setPendingReview] = useState<{
+    material: Material;
+    consumption: Consumption;
+    quantity: number;
+  } | null>(null);
 
   const { materials, consumeMaterial, getUsableStock, getExpiringSoonBatches } = useMaterialStore();
   const { currentUser } = useUserStore();
   const { addConsumption, getUserStats, getMonthlyStats } = useConsumptionStore();
   const { getUserBudgetInfo, checkCanConsume } = useBudgetStore();
   const { getLockedQuantityForMaterial } = useGroupPurchaseStore();
+  const { addReview } = useReviewStore();
 
   const filteredMaterials = activeCategory === "all"
     ? materials
@@ -74,12 +83,38 @@ export default function Home() {
 
     const success = consumeMaterial(materialId, quantity);
     if (success) {
-      addConsumption(currentUser.id, materialId, quantity);
+      const consumption = addConsumption(currentUser.id, materialId, quantity);
       const material = materials.find((m) => m.id === materialId);
       showToast(`取用成功！${material?.icon} ${material?.name} x${quantity}，消费 ${formatCurrency(budgetCheck.cost)}`, "success");
+
+      if (material) {
+        setPendingReview({ material, consumption, quantity });
+        setTimeout(() => setReviewModalOpen(true), 500);
+      }
     } else {
       showToast("库存不足，请联系采购负责人补货", "error");
     }
+  };
+
+  const handleReviewSubmit = (rating: 1 | 2 | 3 | 4 | 5, comment?: string) => {
+    if (!pendingReview || !currentUser) return;
+
+    addReview(
+      currentUser.id,
+      pendingReview.material.id,
+      pendingReview.consumption.id,
+      rating,
+      comment
+    );
+
+    showToast("感谢您的评价！", "success");
+    setReviewModalOpen(false);
+    setPendingReview(null);
+  };
+
+  const handleReviewClose = () => {
+    setReviewModalOpen(false);
+    setPendingReview(null);
   };
 
   const expiringSoonBatches = getExpiringSoonBatches(7);
@@ -106,6 +141,14 @@ export default function Home() {
         type={toastType}
         isVisible={toastVisible}
         onClose={() => setToastVisible(false)}
+      />
+
+      <ReviewModal
+        isOpen={reviewModalOpen}
+        onClose={handleReviewClose}
+        material={pendingReview?.material || null}
+        quantity={pendingReview?.quantity || 0}
+        onSubmit={handleReviewSubmit}
       />
 
       <LowStockAlert />

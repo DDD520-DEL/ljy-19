@@ -18,7 +18,7 @@ export const setUsersCache = (users: User[]) => {
 
 interface ConsumptionState {
   consumptions: Consumption[];
-  addConsumption: (userId: string, materialId: string, quantity: number) => void;
+  addConsumption: (userId: string, materialId: string, quantity: number) => Consumption;
   getUserConsumptions: (userId: string) => Consumption[];
   getMonthlyConsumptions: (userId: string, date?: Date) => Consumption[];
   getUserStats: (userId: string, date?: Date) => UserStats;
@@ -44,6 +44,7 @@ export const useConsumptionStore = create<ConsumptionState>((set, get) => ({
     set({ consumptions: updated });
     storage.set("consumptions", updated);
     setBudgetConsumptionsCache(updated);
+    return newConsumption;
   },
 
   getUserConsumptions: (userId: string) => {

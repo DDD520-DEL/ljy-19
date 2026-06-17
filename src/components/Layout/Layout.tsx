@@ -13,6 +13,7 @@ import { useDutyStore } from "@/store/useDutyStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
+import { useReviewStore } from "@/store/useReviewStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +27,7 @@ export default function Layout() {
   const { initRequests } = useRestockRequestStore();
   const { initSuggestions } = useVoteSuggestionStore();
   const { initGroupPurchases, checkAndSettleExpired } = useGroupPurchaseStore();
+  const { initReviews } = useReviewStore();
 
   useEffect(() => {
     initUsers();
@@ -37,6 +39,7 @@ export default function Layout() {
     initRequests();
     initSuggestions();
     initGroupPurchases();
+    initReviews();
   }, []);
 
   useEffect(() => {

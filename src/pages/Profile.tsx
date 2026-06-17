@@ -17,6 +17,8 @@ import {
   AlertCircle,
   Wallet,
   PiggyBank,
+  Star,
+  MessageSquare,
 } from "lucide-react";
 import UserSelector from "@/components/UserSelector/UserSelector";
 import { useUserStore } from "@/store/useUserStore";
@@ -24,6 +26,7 @@ import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
+import { useReviewStore } from "@/store/useReviewStore";
 import { formatCurrency, timeAgo } from "@/utils/date";
 import { categoryLabels, type MaterialCategory, type RestockRequestStatus } from "@/types";
 import { cn } from "@/lib/utils";
@@ -36,6 +39,7 @@ export default function Profile() {
   const { materials } = useMaterialStore();
   const { getRequestsByApplicant } = useRestockRequestStore();
   const { getUserBudgetInfo } = useBudgetStore();
+  const { getReviewsByUser } = useReviewStore();
 
   const userStats = currentUser ? getUserStats(currentUser.id) : null;
   const userBudgetInfo = currentUser ? getUserBudgetInfo(currentUser.id) : null;
@@ -43,6 +47,7 @@ export default function Profile() {
     ? getMonthlyConsumptions(currentUser.id).slice(0, 10)
     : [];
   const myRequests = currentUser ? getRequestsByApplicant(currentUser.id).slice(0, 10) : [];
+  const myReviews = currentUser ? getReviewsByUser(currentUser.id) : [];
 
   const requestStatusConfig: Record<
     RestockRequestStatus,
@@ -436,6 +441,93 @@ export default function Profile() {
               <p className="text-coffee-500 font-medium mb-1">暂无补货申请</p>
               <p className="text-coffee-400 text-sm">
                 前往库存页面可以提交补货申请
+              </p>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* 我的评价记录 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white rounded-2xl shadow-soft overflow-hidden mb-6"
+      >
+        <div className="px-6 py-4 border-b border-coffee-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-amber-500" />
+            <h3 className="font-bold text-coffee-800">我的评价</h3>
+          </div>
+          <span className="text-xs text-coffee-400">
+            共 {myReviews.length} 条评价
+          </span>
+        </div>
+
+        <div className="divide-y divide-coffee-50">
+          {myReviews.map((review, index) => {
+            const material = materials.find((m) => m.id === review.materialId);
+            return (
+              <motion.div
+                key={review.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.45 + index * 0.03 }}
+                className="px-6 py-4 hover:bg-coffee-50/50 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                    style={{ backgroundColor: (material?.color || "#f0f0f0") + "20" }}
+                  >
+                    {material?.icon || "📦"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="font-medium text-coffee-800 truncate">
+                        {material?.name || "未知物料"}
+                      </p>
+                      <span className="text-xs text-coffee-400 flex-shrink-0">
+                        {timeAgo(review.timestamp)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={cn(
+                            "w-4 h-4 flex-shrink-0",
+                            star <= review.rating
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-coffee-200"
+                          )}
+                        />
+                      ))}
+                      <span className="text-sm font-semibold text-amber-600 ml-1">
+                        {review.rating}.0
+                      </span>
+                    </div>
+                    {review.comment && (
+                      <div className="p-3 bg-cream-50 rounded-lg border border-coffee-100">
+                        <p className="text-sm text-coffee-700 leading-relaxed">
+                          "{review.comment}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+
+          {myReviews.length === 0 && (
+            <div className="px-6 py-12 text-center">
+              <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
+                <Star className="w-7 h-7 text-amber-300" />
+              </div>
+              <p className="text-coffee-500 font-medium mb-1">暂无评价记录</p>
+              <p className="text-coffee-400 text-sm">
+                取用物料后可以为物料打分评价
               </p>
             </div>
           )}

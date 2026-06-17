@@ -2,9 +2,10 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { Material } from "@/types";
 import { getStockStatus, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
-import { Plus, AlertTriangle, AlertOctagon, Lock } from "lucide-react";
+import { Plus, AlertTriangle, AlertOctagon, Lock, Star } from "lucide-react";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
+import { useReviewStore } from "@/store/useReviewStore";
 
 interface MaterialCardProps {
   material: Material;
@@ -21,12 +22,14 @@ export default function MaterialCard({
 }: MaterialCardProps) {
   const { getUsableStock, getExpiringSoonBatches, getExpiredBatches } = useMaterialStore();
   const { getLockedQuantityForMaterial } = useGroupPurchaseStore();
+  const { getMaterialRating } = useReviewStore();
 
   const usableStock = getUsableStock(material.id);
   const lockedQty = getLockedQuantityForMaterial(material.id);
   const availableStock = Math.max(0, usableStock - lockedQty);
   const stockStatus = getStockStatus(usableStock, material.threshold);
   const stockPercentage = Math.min((usableStock / (material.threshold * 3)) * 100, 100);
+  const rating = getMaterialRating(material.id);
 
   const expiringSoonForMaterial = getExpiringSoonBatches(7).filter(
     (b) => b.materialId === material.id
@@ -99,7 +102,31 @@ export default function MaterialCard({
       </div>
 
       <h3 className="text-lg font-bold text-coffee-800 mb-1">{material.name}</h3>
-      <p className="text-sm text-coffee-400 mb-3">{material.description}</p>
+      <p className="text-sm text-coffee-400 mb-2">{material.description}</p>
+
+      {rating.reviewCount > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={cn(
+                  "w-3.5 h-3.5 flex-shrink-0",
+                  star <= Math.round(rating.averageRating)
+                    ? "text-amber-400 fill-amber-400"
+                    : "text-coffee-200"
+                )}
+              />
+            ))}
+          </div>
+          <span className="text-sm font-semibold text-amber-600">
+            {rating.averageRating.toFixed(1)}
+          </span>
+          <span className="text-xs text-coffee-400">
+            ({rating.reviewCount} 条评价)
+          </span>
+        </div>
+      )}
 
       {(hasExpiringSoon || hasExpired) && (
         <div className="mb-3 space-y-1.5">
