@@ -303,12 +303,14 @@ const generateConsumptions = (): Consumption[] => {
   const consumptions: Consumption[] = [];
   const now = new Date();
 
-  for (let day = 29; day >= 0; day--) {
+  for (let day = 89; day >= 0; day--) {
     const date = new Date(now);
     date.setDate(date.getDate() - day);
 
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-    const consumptionsPerDay = isWeekend ? 2 : 5;
+    const monthMultiplier = day < 30 ? 1 : day < 60 ? 0.9 : 0.8;
+    const baseConsumptions = isWeekend ? 2 : 5;
+    const consumptionsPerDay = Math.floor(baseConsumptions * monthMultiplier);
 
     for (let i = 0; i < consumptionsPerDay; i++) {
       const userIndex = Math.floor(Math.random() * mockUsers.length);

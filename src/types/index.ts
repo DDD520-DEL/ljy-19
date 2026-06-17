@@ -253,6 +253,39 @@ export interface MaterialRatingSummary {
   reviewCount: number;
 }
 
+export interface MonthlyConsumption {
+  month: string;
+  totalQuantity: number;
+}
+
+export interface MaterialConsumptionTrend {
+  materialId: string;
+  monthlyConsumptions: MonthlyConsumption[];
+  threeMonthAverage: number;
+  dailyAverage: number;
+  coefficientOfVariation: number;
+  isVolatile: boolean;
+}
+
+export interface RestockSuggestion {
+  materialId: string;
+  materialName: string;
+  materialIcon: string;
+  materialColor: string;
+  materialUnit: string;
+  unitPrice: number;
+  category: MaterialCategory;
+  currentStock: number;
+  threshold: number;
+  threeMonthAverage: number;
+  dailyAverage: number;
+  suggestedQuantity: number;
+  estimatedDays: number;
+  isVolatile: boolean;
+  trendData: MonthlyConsumption[];
+  estimatedCost: number;
+}
+
 export const categoryLabels: Record<MaterialCategory, string> = {
   coffee: "咖啡豆",
   tea: "茶包",

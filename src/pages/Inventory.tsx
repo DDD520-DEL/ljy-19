@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -21,6 +21,12 @@ import {
   X,
   Star,
   ArrowUpDown,
+  Sparkles,
+  Flame,
+  BarChart3,
+  Package,
+  Zap,
+  Minus,
 } from "lucide-react";
 import Modal from "@/components/Modal/Modal";
 import Toast, { ToastType } from "@/components/Toast/Toast";
@@ -31,7 +37,8 @@ import { useBudgetStore } from "@/store/useBudgetStore";
 import { useDutyStore } from "@/store/useDutyStore";
 import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { useReviewStore } from "@/store/useReviewStore";
-import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion } from "@/types";
+import { useConsumptionStore } from "@/store/useConsumptionStore";
+import { categoryLabels, type MaterialCategory, type Material, type User, type VoteSuggestion, type RestockSuggestion } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStockStatus, timeAgo, getBatchExpiryInfo, formatExpiryStatus, formatDate, addDays } from "@/utils/date";
 
@@ -70,6 +77,8 @@ export default function Inventory() {
   const [expandedMaterials, setExpandedMaterials] = useState<Set<string>>(new Set());
   const [restockBatches, setRestockBatches] = useState<RestockBatchInput[]>([]);
   const [sortBy, setSortBy] = useState<"default" | "rating_desc" | "rating_asc" | "review_count">("default");
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [suggestionQuantities, setSuggestionQuantities] = useState<Record<string, number>>({});
 
   type SortOption = typeof sortBy;
 
@@ -97,11 +106,92 @@ export default function Inventory() {
   const { getCurrentDutyUser } = useDutyStore();
   const { getPendingSuggestions, markAsProcessed } = useVoteSuggestionStore();
   const { getMaterialRating } = useReviewStore();
+  const { getRestockSuggestions } = useConsumptionStore();
 
   const currentDutyUser = getCurrentDutyUser();
   const isCurrentDutyUser = currentUser && currentDutyUser && currentUser.id === currentDutyUser.id;
   const pendingSuggestions = getPendingSuggestions();
   const [selectedSuggestion, setSelectedSuggestion] = useState<VoteSuggestion | null>(null);
+
+  const restockSuggestions = useMemo(() => {
+    return getRestockSuggestions(materials);
+  }, [materials, getRestockSuggestions]);
+
+  const filteredRestockSuggestions = useMemo(() => {
+    if (activeCategory === "all") return restockSuggestions;
+    return restockSuggestions.filter((s) => s.category === activeCategory);
+  }, [restockSuggestions, activeCategory]);
+
+  const getSuggestionQuantity = (suggestionId: string, defaultQty: number) => {
+    return suggestionQuantities[suggestionId] ?? defaultQty;
+  };
+
+  const updateSuggestionQuantity = (suggestionId: string, newQty: number) => {
+    setSuggestionQuantities((prev) => ({
+      ...prev,
+      [suggestionId]: Math.max(1, newQty),
+    }));
+  };
+
+  const applySmartSuggestionToRestock = (suggestion: RestockSuggestion) => {
+    const material = materials.find((m) => m.id === suggestion.materialId);
+    if (!material) return;
+
+    const qty = getSuggestionQuantity(suggestion.materialId, suggestion.suggestedQuantity);
+    setSelectedMaterial(material);
+    setRestockBatches([
+      {
+        ...createNewBatchInput(material),
+        quantity: String(qty),
+      },
+    ]);
+    setRestockCost(String(material.unitPrice * qty));
+    setSelectedSuggestion(null);
+    setRestockModalOpen(true);
+  };
+
+  const applySmartSuggestionToRequest = (suggestion: RestockSuggestion) => {
+    const material = materials.find((m) => m.id === suggestion.materialId);
+    if (!material) return;
+
+    const qty = getSuggestionQuantity(suggestion.materialId, suggestion.suggestedQuantity);
+    setSelectedMaterial(material);
+    setRequestQuantity(String(qty));
+
+    const reasonParts = [
+      `基于过去3个月消费数据分析，月均消耗约 ${suggestion.threeMonthAverage}${material.unit}，`,
+      `日均消耗 ${suggestion.dailyAverage}${material.unit}。`,
+      suggestion.isVolatile ? "消费波动较大，建议多备货。" : "",
+    ].filter(Boolean);
+    setRequestReason(reasonParts.join(""));
+    setSelectedSuggestion(null);
+    setRequestModalOpen(true);
+  };
+
+  const batchApplyAllToRestock = () => {
+    if (!isAdmin && !isCurrentDutyUser) {
+      showToast("仅管理员或本周值班人员可批量补货", "warning");
+      return;
+    }
+
+    const totalCost = filteredRestockSuggestions.reduce((sum, s) => {
+      const qty = getSuggestionQuantity(s.materialId, s.suggestedQuantity);
+      return sum + qty * s.unitPrice;
+    }, 0);
+
+    showToast(
+      `已准备 ${filteredRestockSuggestions.length} 种物料，预估总费用 ${formatCurrency(totalCost)}。请在弹窗中逐一确认。`,
+      "success"
+    );
+
+    if (filteredRestockSuggestions.length > 0) {
+      if (isAdmin) {
+        applySmartSuggestionToRestock(filteredRestockSuggestions[0]);
+      } else {
+        applySmartSuggestionToRequest(filteredRestockSuggestions[0]);
+      }
+    }
+  };
 
   const isAdmin = currentUser?.role === "admin";
   const pendingCount = getPendingCount();
@@ -600,6 +690,245 @@ export default function Inventory() {
             <span>补货完成后，建议将自动标记为已处理</span>
           </div>
         </motion.div>
+      )}
+
+      {filteredRestockSuggestions.length > 0 && (isCurrentDutyUser || isAdmin) && showSuggestions && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 border border-amber-200 rounded-2xl p-5 mb-6"
+        >
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl shadow-md">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-coffee-800">智能补货建议</h3>
+                <p className="text-sm text-coffee-500">
+                  基于过去3个月消费数据分析 · {filteredRestockSuggestions.length} 种物料需要关注
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {filteredRestockSuggestions.length > 1 && (
+                <button
+                  onClick={batchApplyAllToRestock}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm"
+                >
+                  <Zap className="w-4 h-4" />
+                  批量一键处理
+                </button>
+              )}
+              <button
+                onClick={() => setShowSuggestions(false)}
+                className="p-2 text-coffee-400 hover:text-coffee-600 hover:bg-coffee-100/50 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <AnimatePresence>
+              {filteredRestockSuggestions.map((suggestion, index) => {
+                const suggestedQty = getSuggestionQuantity(suggestion.materialId, suggestion.suggestedQuantity);
+                const urgency =
+                  suggestion.estimatedDays < 7
+                    ? { label: "紧急", className: "bg-danger-100 text-danger-600", icon: <Flame className="w-3.5 h-3.5" /> }
+                    : suggestion.estimatedDays < 15
+                    ? { label: "紧张", className: "bg-amber-100 text-amber-700", icon: <AlertTriangle className="w-3.5 h-3.5" /> }
+                    : { label: "正常", className: "bg-matcha-100 text-matcha-700", icon: <Package className="w-3.5 h-3.5" /> };
+
+                return (
+                  <motion.div
+                    key={suggestion.materialId}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-white rounded-xl p-4 shadow-sm border border-amber-100 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                        style={{ backgroundColor: suggestion.materialColor + "30" }}
+                      >
+                        {suggestion.materialIcon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-coffee-800 truncate">{suggestion.materialName}</h4>
+                          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", urgency.className)}>
+                            {urgency.icon}
+                            {urgency.label}
+                          </span>
+                          {suggestion.isVolatile && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full text-xs font-medium">
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              建议多备
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-coffee-400 mt-0.5">{categoryLabels[suggestion.category]}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                      <div className="bg-coffee-50/80 rounded-lg py-2 px-1">
+                        <div className="flex items-center justify-center gap-1 text-coffee-400 text-xs mb-0.5">
+                          <Package className="w-3 h-3" />
+                          当前库存
+                        </div>
+                        <p className="font-bold text-coffee-800 text-sm">
+                          {suggestion.currentStock}
+                          <span className="text-xs font-normal text-coffee-500 ml-0.5">{suggestion.materialUnit}</span>
+                        </p>
+                      </div>
+                      <div className="bg-coffee-50/80 rounded-lg py-2 px-1">
+                        <div className="flex items-center justify-center gap-1 text-coffee-400 text-xs mb-0.5">
+                          <BarChart3 className="w-3 h-3" />
+                          月均消耗
+                        </div>
+                        <p className="font-bold text-coffee-800 text-sm">
+                          {suggestion.threeMonthAverage}
+                          <span className="text-xs font-normal text-coffee-500 ml-0.5">{suggestion.materialUnit}</span>
+                        </p>
+                      </div>
+                      <div className="bg-coffee-50/80 rounded-lg py-2 px-1">
+                        <div className="flex items-center justify-center gap-1 text-coffee-400 text-xs mb-0.5">
+                          <Clock className="w-3 h-3" />
+                          可支撑
+                        </div>
+                        <p className={cn(
+                          "font-bold text-sm",
+                          suggestion.estimatedDays < 7 ? "text-danger-600" : suggestion.estimatedDays < 15 ? "text-amber-600" : "text-matcha-600"
+                        )}>
+                          {suggestion.estimatedDays >= 999 ? "∞" : suggestion.estimatedDays}
+                          <span className="text-xs font-normal ml-0.5">天</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-coffee-500">消费趋势（近3月）</span>
+                      </div>
+                      <div className="flex items-end gap-1 h-10">
+                        {suggestion.trendData.map((month, mIndex) => {
+                          const maxQty = Math.max(...suggestion.trendData.map((m) => m.totalQuantity), 1);
+                          const heightPercent = Math.max((month.totalQuantity / maxQty) * 100, 8);
+                          return (
+                            <div key={month.month} className="flex-1 flex flex-col items-center gap-0.5">
+                              <div
+                                className={cn(
+                                  "w-full rounded-t-sm transition-all",
+                                  mIndex === suggestion.trendData.length - 1
+                                    ? "bg-gradient-to-t from-amber-400 to-amber-300"
+                                    : "bg-coffee-200"
+                                )}
+                                style={{ height: `${heightPercent}%` }}
+                                title={`${month.month}: ${month.totalQuantity}${suggestion.materialUnit}`}
+                              />
+                              <span className="text-[9px] text-coffee-400 leading-none">
+                                {month.month.slice(5)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-100">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm font-medium text-coffee-700">建议补货</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => updateSuggestionQuantity(suggestion.materialId, suggestedQty - 1)}
+                            className="w-6 h-6 flex items-center justify-center rounded-md bg-white border border-amber-200 text-coffee-600 hover:bg-amber-100 transition-colors"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            value={suggestedQty}
+                            onChange={(e) => updateSuggestionQuantity(suggestion.materialId, parseInt(e.target.value) || 1)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-16 px-2 py-1 text-center text-sm font-bold bg-white border border-amber-200 rounded-md text-coffee-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            min="1"
+                          />
+                          <button
+                            onClick={() => updateSuggestionQuantity(suggestion.materialId, suggestedQty + 1)}
+                            className="w-6 h-6 flex items-center justify-center rounded-md bg-white border border-amber-200 text-coffee-600 hover:bg-amber-100 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                          <span className="text-sm text-coffee-500 ml-1">{suggestion.materialUnit}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-coffee-500">
+                        <span>安全阈值：{suggestion.threshold}{suggestion.materialUnit}</span>
+                        <span>预估费用：<span className="font-bold text-coffee-700">{formatCurrency(suggestedQty * suggestion.unitPrice)}</span></span>
+                      </div>
+
+                      <button
+                        onClick={() => isAdmin ? applySmartSuggestionToRestock(suggestion) : applySmartSuggestionToRequest(suggestion)}
+                        className={cn(
+                          "w-full flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all shadow-sm",
+                          isAdmin
+                            ? "bg-gradient-to-r from-matcha-500 to-emerald-500 text-white hover:from-matcha-600 hover:to-emerald-600"
+                            : "bg-gradient-to-r from-coffee-500 to-coffee-600 text-white hover:from-coffee-600 hover:to-coffee-700"
+                        )}
+                      >
+                        {isAdmin ? (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            一键补货
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRight className="w-4 h-4" />
+                            一键填入申请
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+
+          {!showSuggestions && filteredRestockSuggestions.length > 0 && (
+            <div className="mt-3 text-center">
+              <button
+                onClick={() => setShowSuggestions(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                显示智能补货建议
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {!showSuggestions && filteredRestockSuggestions.length > 0 && (isCurrentDutyUser || isAdmin) && (
+        <div className="mb-6">
+          <button
+            onClick={() => setShowSuggestions(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 border-dashed rounded-2xl text-amber-700 hover:from-amber-100 hover:to-orange-100 transition-all"
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="font-medium">
+              展开 {filteredRestockSuggestions.length} 条智能补货建议
+            </span>
+          </button>
+        </div>
       )}
 
       <div className="bg-white rounded-2xl shadow-soft p-4 mb-6 space-y-3">
