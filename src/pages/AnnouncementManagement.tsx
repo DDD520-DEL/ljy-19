@@ -198,9 +198,10 @@ export default function AnnouncementManagement() {
   };
 
   const handleTogglePin = (id: string) => {
-    togglePin(id);
     const announcement = getAllAnnouncements().find((a) => a.id === id);
-    showToast(announcement?.isPinned ? "已取消置顶" : "已置顶", "success");
+    const wasPinned = announcement?.isPinned;
+    togglePin(id);
+    showToast(wasPinned ? "已取消置顶" : "已置顶", "success");
   };
 
   const handleArchive = (id: string) => {
