@@ -14,8 +14,11 @@ import {
   isSameMonth,
 } from "../utils/date";
 
+type UserBadgesMap = Record<string, Badge[]>;
+
 interface CheckInState {
   checkIns: CheckInRecord[];
+  userBadges: UserBadgesMap;
   checkIn: (userId: string) => {
     success: boolean;
     alreadyCheckedIn: boolean;
@@ -102,20 +105,34 @@ const checkAndAwardBadges = (
   return { badges: updatedBadges, newlyUnlocked };
 };
 
+const saveUserBadges = (userBadges: UserBadgesMap) => {
+  storage.set("userBadges", userBadges);
+};
+
+const loadUserBadges = (): UserBadgesMap => {
+  return storage.get<UserBadgesMap>("userBadges", {});
+};
+
 export const useCheckInStore = create<CheckInState>((set, get) => ({
   checkIns: [],
+  userBadges: {},
 
   checkIn: (userId: string) => {
     const today = new Date();
     const todayStr = formatDate(today, "YYYY-MM-DD");
 
     if (get().hasCheckedInToday(userId)) {
-      const stats = get().getUserStats(userId);
+      const userRecords = get()
+        .checkIns.filter((c) => c.userId === userId)
+        .sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+      const streak = calculateStreak(userRecords);
       return {
         success: false,
         alreadyCheckedIn: true,
         newBadgeUnlocked: null,
-        streak: stats.currentStreak,
+        streak,
       };
     }
 
@@ -126,22 +143,32 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
       timestamp: today.toISOString(),
     };
 
-    const updated = [newRecord, ...get().checkIns];
-    set({ checkIns: updated });
-    storage.set("checkIns", updated);
+    const updatedCheckIns = [newRecord, ...get().checkIns];
+    set({ checkIns: updatedCheckIns });
+    storage.set("checkIns", updatedCheckIns);
 
-    const userRecords = updated
+    const userRecords = updatedCheckIns
       .filter((c) => c.userId === userId)
       .sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
 
     const streak = calculateStreak(userRecords);
-    const currentBadges = get().getUserStats(userId).badges;
-    const { newlyUnlocked } = checkAndAwardBadges(
-      currentBadges,
+
+    const currentUserBadges = get().userBadges[userId] || [];
+    const { badges: updatedBadges, newlyUnlocked } = checkAndAwardBadges(
+      currentUserBadges,
       streak
     );
+
+    if (newlyUnlocked) {
+      const updatedUserBadges = {
+        ...get().userBadges,
+        [userId]: updatedBadges,
+      };
+      set({ userBadges: updatedUserBadges });
+      saveUserBadges(updatedUserBadges);
+    }
 
     return {
       success: true,
@@ -179,7 +206,17 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     const longestStreak = calculateLongestStreak(userRecords);
     const lastCheckInDate = userRecords.length > 0 ? userRecords[0].date : null;
 
-    const { badges } = checkAndAwardBadges([], currentStreak);
+    const savedBadges = get().userBadges[userId] || [];
+    const { badges } = checkAndAwardBadges(savedBadges, currentStreak);
+
+    if (badges.length > savedBadges.length) {
+      const updatedUserBadges = {
+        ...get().userBadges,
+        [userId]: badges,
+      };
+      set({ userBadges: updatedUserBadges });
+      saveUserBadges(updatedUserBadges);
+    }
 
     return {
       userId,
@@ -222,10 +259,17 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
   },
 
   initCheckIns: () => {
-    const saved = storage.get<CheckInRecord[] | null>("checkIns", null);
-    const data = saved || mockCheckIns;
-    set({ checkIns: data });
-    if (!saved) {
+    const savedCheckIns = storage.get<CheckInRecord[] | null>("checkIns", null);
+    const checkInsData = savedCheckIns || mockCheckIns;
+
+    const savedUserBadges = loadUserBadges();
+
+    set({
+      checkIns: checkInsData,
+      userBadges: savedUserBadges,
+    });
+
+    if (!savedCheckIns) {
       storage.set("checkIns", mockCheckIns);
     }
   },
