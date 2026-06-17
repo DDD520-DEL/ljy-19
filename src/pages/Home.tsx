@@ -6,13 +6,15 @@ import LowStockAlert from "@/components/LowStockAlert/LowStockAlert";
 import StatsCard from "@/components/StatsCard/StatsCard";
 import Toast, { ToastType } from "@/components/Toast/Toast";
 import ReviewModal from "@/components/ReviewModal/ReviewModal";
+import AnnouncementBanner from "@/components/AnnouncementBanner/AnnouncementBanner";
+import AnnouncementDetail from "@/components/AnnouncementDetail/AnnouncementDetail";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
 import { useReviewStore } from "@/store/useReviewStore";
-import { type MaterialCategory, type Material, type Consumption } from "@/types";
+import { type MaterialCategory, type Material, type Consumption, type Announcement } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getBatchExpiryInfo, formatExpiryStatus } from "@/utils/date";
 
@@ -35,6 +37,8 @@ export default function Home() {
     consumption: Consumption;
     quantity: number;
   } | null>(null);
+  const [announcementDetailOpen, setAnnouncementDetailOpen] = useState(false);
+  const [viewingAnnouncement, setViewingAnnouncement] = useState<Announcement | null>(null);
 
   const { materials, consumeMaterial, getUsableStock, getExpiringSoonBatches } = useMaterialStore();
   const { currentUser } = useUserStore();
@@ -117,6 +121,16 @@ export default function Home() {
     setPendingReview(null);
   };
 
+  const handleViewAnnouncement = (announcement: Announcement) => {
+    setViewingAnnouncement(announcement);
+    setAnnouncementDetailOpen(true);
+  };
+
+  const handleCloseAnnouncement = () => {
+    setAnnouncementDetailOpen(false);
+    setTimeout(() => setViewingAnnouncement(null), 300);
+  };
+
   const expiringSoonBatches = getExpiringSoonBatches(7);
 
   const container = {
@@ -150,6 +164,14 @@ export default function Home() {
         quantity={pendingReview?.quantity || 0}
         onSubmit={handleReviewSubmit}
       />
+
+      <AnnouncementDetail
+        isOpen={announcementDetailOpen}
+        onClose={handleCloseAnnouncement}
+        announcement={viewingAnnouncement}
+      />
+
+      <AnnouncementBanner onViewDetail={handleViewAnnouncement} />
 
       <LowStockAlert />
 

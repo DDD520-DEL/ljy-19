@@ -440,3 +440,75 @@ export const getCurrentDutyUser = (): User | undefined => {
   if (!currentDuty) return undefined;
   return mockUsers.find((u) => u.id === currentDuty.userId);
 };
+
+import type { Announcement } from "../types";
+
+const generateAnnouncements = (): Announcement[] => {
+  const now = new Date();
+  const adminUserId = mockUsers[2].id;
+
+  return [
+    {
+      id: "ann-1",
+      title: "新豆子到货！埃塞俄比亚耶加雪菲已上架",
+      content: "大家好，新一批埃塞俄比亚耶加雪菲咖啡豆已经到货啦！这款豆子带有柑橘和花香的风味，口感清爽明亮，欢迎大家来品尝~ 数量有限，先到先得哦！",
+      type: "stock",
+      isPinned: true,
+      createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: adminUserId,
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: "active",
+      viewCount: 24,
+    },
+    {
+      id: "ann-2",
+      title: "咖啡机维护通知",
+      content: "本周六（6月20日）上午10:00-12:00将对咖啡机进行例行维护保养，届时咖啡机将暂停使用。请大家提前安排好时间，给您带来的不便敬请谅解。",
+      type: "maintenance",
+      isPinned: true,
+      createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: adminUserId,
+      expiresAt: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      status: "active",
+      viewCount: 42,
+    },
+    {
+      id: "ann-3",
+      title: "端午节放假通知",
+      content: "根据国家法定节假日安排，6月22日（端午节）茶水间将暂停开放一天。请大家提前做好准备，祝大家节日快乐！",
+      type: "holiday",
+      isPinned: false,
+      createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: adminUserId,
+      expiresAt: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      status: "active",
+      viewCount: 56,
+    },
+    {
+      id: "ann-4",
+      title: "牛奶库存告急",
+      content: "鲜牛奶库存即将耗尽，预计今天下午会有新的配送。如果需要加奶的同事请稍等，或者可以选择燕麦奶/椰奶代替。感谢理解！",
+      type: "stock",
+      isPinned: false,
+      createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: adminUserId,
+      expiresAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      status: "expired",
+      viewCount: 31,
+    },
+    {
+      id: "ann-5",
+      title: "欢迎新同事加入！",
+      content: "欢迎新同事加入我们的咖啡角大家庭！大家可以在首页浏览各种饮品，按需取用。如有任何问题，随时找管理员咨询~",
+      type: "general",
+      isPinned: false,
+      createdAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: adminUserId,
+      expiresAt: undefined,
+      status: "archived",
+      viewCount: 67,
+    },
+  ];
+};
+
+export const mockAnnouncements: Announcement[] = generateAnnouncements();

@@ -299,3 +299,33 @@ export const categoryColors: Record<MaterialCategory, string> = {
   dairy: "#FFE4A8",
   snack: "#E67E22",
 };
+
+export type AnnouncementType = "general" | "stock" | "maintenance" | "holiday";
+export type AnnouncementStatus = "active" | "expired" | "archived";
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: AnnouncementType;
+  isPinned: boolean;
+  createdAt: string;
+  createdBy: string;
+  expiresAt?: string;
+  status: AnnouncementStatus;
+  viewCount: number;
+}
+
+export const announcementTypeLabels: Record<AnnouncementType, string> = {
+  general: "一般通知",
+  stock: "库存通知",
+  maintenance: "设备维护",
+  holiday: "节假日",
+};
+
+export const announcementTypeColors: Record<AnnouncementType, string> = {
+  general: "#6B7280",
+  stock: "#10B981",
+  maintenance: "#F59E0B",
+  holiday: "#EF4444",
+};

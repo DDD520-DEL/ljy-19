@@ -12,6 +12,7 @@ import {
   Users,
   Ticket,
   Shield,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
@@ -40,6 +41,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: "/vote", label: "我想喝什么", icon: Vote },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },
+    { path: "/announcements", label: "公告通知", icon: Megaphone },
     ...(isAdmin
       ? [
           { path: "/invitations", label: "邀请码管理", icon: Ticket },

@@ -15,6 +15,7 @@ import { useVoteSuggestionStore } from "@/store/useVoteSuggestionStore";
 import { useGroupPurchaseStore } from "@/store/useGroupPurchaseStore";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useInvitationStore } from "@/store/useInvitationStore";
+import { useAnnouncementStore } from "@/store/useAnnouncementStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,6 +31,7 @@ export default function Layout() {
   const { initGroupPurchases, checkAndSettleExpired } = useGroupPurchaseStore();
   const { initReviews } = useReviewStore();
   const { initInvitationCodes } = useInvitationStore();
+  const { initAnnouncements, checkAndUpdateExpired } = useAnnouncementStore();
 
   useEffect(() => {
     initUsers();
@@ -43,6 +45,7 @@ export default function Layout() {
     initGroupPurchases();
     initReviews();
     initInvitationCodes();
+    initAnnouncements();
   }, []);
 
   useEffect(() => {
@@ -50,10 +53,11 @@ export default function Layout() {
       checkVoteExpiry();
       checkAndSettleExpired();
       checkAndRotateDuty();
+      checkAndUpdateExpired();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, [checkVoteExpiry, checkAndSettleExpired, checkAndRotateDuty]);
+  }, [checkVoteExpiry, checkAndSettleExpired, checkAndRotateDuty, checkAndUpdateExpired]);
 
   useEffect(() => {
     if (materials.length > 0) {

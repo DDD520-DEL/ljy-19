@@ -11,6 +11,7 @@ import GroupPurchase from "@/pages/GroupPurchase";
 import Register from "@/pages/Register";
 import InvitationManagement from "@/pages/InvitationManagement";
 import UserManagement from "@/pages/UserManagement";
+import AnnouncementManagement from "@/pages/AnnouncementManagement";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="invitations" element={<InvitationManagement />} />
           <Route path="users" element={<UserManagement />} />
+          <Route path="announcements" element={<AnnouncementManagement />} />
         </Route>
       </Routes>
     </Router>
