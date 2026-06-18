@@ -41,7 +41,7 @@ export default function DailySpecialDrink() {
   const { materials, consumeMaterial, getUsableStock } = useMaterialStore();
   const { currentUser } = useUserStore();
   const { addConsumption } = useConsumptionStore();
-  const { getUserBudgetInfo, checkCanConsume } = useBudgetStore();
+  const { getUserBudgetInfo } = useBudgetStore();
   const { getLockedQuantityForMaterial } = useGroupPurchaseStore();
 
   const [toastVisible, setToastVisible] = useState(false);
@@ -53,7 +53,12 @@ export default function DailySpecialDrink() {
 
   const recipe = getTodaysRecipe();
   const allRecipes = getAllRecipes();
-  const availability = getRecipeAvailability(recipe.id, materials, getUsableStock);
+
+  const getAvailableStock = (materialId: string) => {
+    return getUsableStock(materialId) - getLockedQuantityForMaterial(materialId);
+  };
+
+  const availability = getRecipeAvailability(recipe.id, materials, getAvailableStock);
   const userBudgetInfo = currentUser ? getUserBudgetInfo(currentUser.id) : null;
 
   const showToast = (message: string, type: ToastType = "success") => {
@@ -80,29 +85,27 @@ export default function DailySpecialDrink() {
 
     if (!availability.available) {
       const missingItems = availability.unavailableIngredients
-        .map((i) => `${i.materialName}(缺 ${i.needed - i.available}${i.needed > 0 ? "" : ""})`)
+        .map((i) => `${i.materialName}(缺 ${i.needed - i.available})`)
         .join("、");
       showToast(`物料不足：${missingItems}`, "error");
       return;
     }
 
-    let totalCost = 0;
-    for (const ingredient of recipe.ingredients) {
-      const budgetCheck = checkCanConsume(currentUser.id, ingredient.materialId, ingredient.quantity);
-      if (!budgetCheck.canConsume) {
-        showToast(
-          `额度不足！${recipe.name} 需 ${formatCurrency(availability.totalCost)}，剩余 ${formatCurrency(budgetCheck.remaining)}`,
-          "error"
-        );
-        return;
-      }
-      totalCost += budgetCheck.cost;
+    const totalCost = availability.totalCost;
+    const budgetInfo = getUserBudgetInfo(currentUser.id);
+    if (budgetInfo.remainingAmount < totalCost) {
+      showToast(
+        `额度不足！${recipe.name} 共需 ${formatCurrency(totalCost)}，本月剩余 ${formatCurrency(budgetInfo.remainingAmount)}`,
+        "error"
+      );
+      return;
+    }
 
-      const usableStock = getUsableStock(ingredient.materialId);
-      const lockedQty = getLockedQuantityForMaterial(ingredient.materialId);
-      const availableStock = usableStock - lockedQty;
+    for (const ingredient of recipe.ingredients) {
+      const availableStock = getAvailableStock(ingredient.materialId);
       if (availableStock < ingredient.quantity) {
         const material = materials.find((m) => m.id === ingredient.materialId);
+        const lockedQty = getLockedQuantityForMaterial(ingredient.materialId);
         showToast(
           `${material?.name || ingredient.materialName} 可用库存不足${lockedQty > 0 ? `（拼单锁定 ${lockedQty}）` : ""}`,
           "error"
@@ -298,9 +301,10 @@ export default function DailySpecialDrink() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {recipe.ingredients.map((ingredient) => {
-                        const stock = getUsableStock(ingredient.materialId);
+                        const stock = getAvailableStock(ingredient.materialId);
                         const isEnough = stock >= ingredient.quantity;
                         const material = materials.find((m) => m.id === ingredient.materialId);
+                        const lockedQty = getLockedQuantityForMaterial(ingredient.materialId);
                         return (
                           <div
                             key={ingredient.materialId}
@@ -334,7 +338,11 @@ export default function DailySpecialDrink() {
                                 {ingredient.unit}
                               </p>
                               <p className="text-xs text-coffee-400">
-                                {material ? formatCurrency(material.unitPrice * ingredient.quantity) : "-"}
+                                {lockedQty > 0
+                                  ? `可用 ${stock}（锁定 ${lockedQty}）`
+                                  : material
+                                  ? formatCurrency(material.unitPrice * ingredient.quantity)
+                                  : "-"}
                               </p>
                             </div>
                           </div>

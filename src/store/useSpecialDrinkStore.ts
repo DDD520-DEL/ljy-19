@@ -25,7 +25,7 @@ interface SpecialDrinkState {
   getRecipeAvailability: (
     recipeId: string,
     materials: Material[],
-    getUsableStock: (materialId: string) => number
+    getAvailableStock: (materialId: string) => number
   ) => DrinkRecipeAvailability;
   setRecipeIndex: (index: number) => void;
   nextRecipe: () => void;
@@ -56,7 +56,7 @@ export const useSpecialDrinkStore = create<SpecialDrinkState>((set, get) => ({
   getRecipeAvailability: (
     recipeId: string,
     materials: Material[],
-    getUsableStock: (materialId: string) => number
+    getAvailableStock: (materialId: string) => number
   ) => {
     const recipe = get().getRecipeById(recipeId);
     if (!recipe) {
@@ -79,7 +79,7 @@ export const useSpecialDrinkStore = create<SpecialDrinkState>((set, get) => ({
 
     recipe.ingredients.forEach((ingredient) => {
       const material = materials.find((m) => m.id === ingredient.materialId);
-      const stock = getUsableStock(ingredient.materialId);
+      const stock = getAvailableStock(ingredient.materialId);
 
       if (material) {
         totalCost += material.unitPrice * ingredient.quantity;
