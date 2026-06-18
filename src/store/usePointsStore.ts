@@ -7,6 +7,10 @@ import type {
   HistoricalLeaderboard,
   User,
   Badge,
+  FunData,
+  TopCoffeeDrinker,
+  TopMaterialItem,
+  PerCapitaRankingItem,
 } from "../types";
 import {
   DRINKER_TITLE_RANKS,
@@ -17,6 +21,7 @@ import { storage } from "../utils/storage";
 import { generateId, isSameMonth } from "../utils/date";
 import { mockUsers, mockConsumptions, mockMaterials } from "../data/mockData";
 import { useCheckInStore } from "./useCheckInStore";
+import { useConsumptionStore } from "./useConsumptionStore";
 
 let usersCache: User[] = mockUsers;
 let materialsCache = mockMaterials;
@@ -105,6 +110,8 @@ interface PointsState {
   drinkerTitles: MonthlyDrinkerTitle[];
   historicalLeaderboards: HistoricalLeaderboard[];
   lastProcessedMonth: string | null;
+  funData: FunData | null;
+  lastFunDataRefresh: string | null;
 
   addPoints: (
     userId: string,
@@ -126,6 +133,14 @@ interface PointsState {
   checkAndProcessMonthEnd: () => { awarded: number; reset: number } | null;
   resetMonthlyPoints: (date?: Date) => number;
 
+  getFunData: () => FunData;
+  calculateTopCoffeeDrinker: (date?: Date) => TopCoffeeDrinker | null;
+  calculateTopMaterials: (date?: Date, limit?: number) => TopMaterialItem[];
+  calculateTotalCoffeeCups: (date?: Date) => number;
+  calculatePerCapitaRanking: (date?: Date) => PerCapitaRankingItem[];
+  shouldRefreshFunData: () => boolean;
+  refreshFunData: () => void;
+
   initPoints: () => void;
 }
 
@@ -134,6 +149,8 @@ export const usePointsStore = create<PointsState>((set, get) => ({
   drinkerTitles: [],
   historicalLeaderboards: [],
   lastProcessedMonth: null,
+  funData: null,
+  lastFunDataRefresh: null,
 
   addPoints: (
     userId: string,
@@ -394,9 +411,220 @@ export const usePointsStore = create<PointsState>((set, get) => ({
     return removedCount;
   },
 
+  getFunData: () => {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + 1);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const currentFunData = get().funData;
+    if (currentFunData && !get().shouldRefreshFunData()) {
+      return currentFunData;
+    }
+
+    const funData: FunData = {
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+      lastRefreshed: now.toISOString(),
+      topCoffeeDrinker: get().calculateTopCoffeeDrinker(),
+      topMaterials: get().calculateTopMaterials(now, 5),
+      totalCoffeeCups: get().calculateTotalCoffeeCups(),
+      perCapitaRanking: get().calculatePerCapitaRanking(),
+    };
+
+    set({ funData, lastFunDataRefresh: now.toISOString() });
+    storage.set("funData", funData);
+    storage.set("lastFunDataRefresh", now.toISOString());
+
+    return funData;
+  },
+
+  calculateTopCoffeeDrinker: (date: Date = new Date()) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const consumptions = useConsumptionStore.getState().consumptions;
+
+    const monthlyConsumptions = consumptions.filter((c) => {
+      const d = new Date(c.timestamp);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    const userCoffeeStats: Record<string, { cups: number; cost: number }> = {};
+
+    monthlyConsumptions.forEach((consumption) => {
+      const material = materialsCache.find((m) => m.id === consumption.materialId);
+      if (material && material.category === "coffee") {
+        if (!userCoffeeStats[consumption.userId]) {
+          userCoffeeStats[consumption.userId] = { cups: 0, cost: 0 };
+        }
+        userCoffeeStats[consumption.userId].cups += consumption.quantity;
+        userCoffeeStats[consumption.userId].cost += consumption.quantity * material.unitPrice;
+      }
+    });
+
+    const sorted = Object.entries(userCoffeeStats)
+      .sort((a, b) => b[1].cups - a[1].cups)
+      .slice(0, 1);
+
+    if (sorted.length === 0) return null;
+
+    const [userId, stats] = sorted[0];
+    const user = usersCache.find((u) => u.id === userId);
+    if (!user) return null;
+
+    return {
+      userId,
+      user,
+      coffeeCups: stats.cups,
+      totalCost: stats.cost,
+    };
+  },
+
+  calculateTopMaterials: (date: Date = new Date(), limit: number = 5) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const consumptions = useConsumptionStore.getState().consumptions;
+
+    const monthlyConsumptions = consumptions.filter((c) => {
+      const d = new Date(c.timestamp);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    const materialStats: Record<string, { quantity: number; cost: number }> = {};
+
+    monthlyConsumptions.forEach((consumption) => {
+      const material = materialsCache.find((m) => m.id === consumption.materialId);
+      if (material) {
+        if (!materialStats[material.id]) {
+          materialStats[material.id] = { quantity: 0, cost: 0 };
+        }
+        materialStats[material.id].quantity += consumption.quantity;
+        materialStats[material.id].cost += consumption.quantity * material.unitPrice;
+      }
+    });
+
+    return Object.entries(materialStats)
+      .map(([materialId, stats]) => {
+        const material = materialsCache.find((m) => m.id === materialId);
+        return {
+          materialId,
+          materialName: material?.name || "",
+          materialIcon: material?.icon || "📦",
+          materialColor: material?.color || "#6F4E37",
+          quantity: stats.quantity,
+          totalCost: stats.cost,
+        };
+      })
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, limit);
+  },
+
+  calculateTotalCoffeeCups: (date: Date = new Date()) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const consumptions = useConsumptionStore.getState().consumptions;
+
+    const monthlyConsumptions = consumptions.filter((c) => {
+      const d = new Date(c.timestamp);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    let totalCups = 0;
+    monthlyConsumptions.forEach((consumption) => {
+      const material = materialsCache.find((m) => m.id === consumption.materialId);
+      if (material && material.category === "coffee") {
+        totalCups += consumption.quantity;
+      }
+    });
+
+    return totalCups;
+  },
+
+  calculatePerCapitaRanking: (date: Date = new Date()) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const consumptions = useConsumptionStore.getState().consumptions;
+
+    const monthlyConsumptions = consumptions.filter((c) => {
+      const d = new Date(c.timestamp);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    const userStats: Record<string, { totalCost: number; count: number; quantity: number }> = {};
+
+    monthlyConsumptions.forEach((consumption) => {
+      const material = materialsCache.find((m) => m.id === consumption.materialId);
+      if (material) {
+        if (!userStats[consumption.userId]) {
+          userStats[consumption.userId] = { totalCost: 0, count: 0, quantity: 0 };
+        }
+        userStats[consumption.userId].totalCost += consumption.quantity * material.unitPrice;
+        userStats[consumption.userId].count += 1;
+        userStats[consumption.userId].quantity += consumption.quantity;
+      }
+    });
+
+    return Object.entries(userStats)
+      .map(([userId, stats]) => {
+        const user = usersCache.find((u) => u.id === userId);
+        return {
+          userId,
+          user: user!,
+          totalCost: stats.totalCost,
+          consumptionCount: stats.count,
+          averagePerConsumption: stats.count > 0 ? stats.totalCost / stats.count : 0,
+        };
+      })
+      .filter((item): item is PerCapitaRankingItem => item.user !== undefined)
+      .sort((a, b) => b.totalCost - a.totalCost)
+      .slice(0, 10);
+  },
+
+  shouldRefreshFunData: () => {
+    const lastRefresh = get().lastFunDataRefresh;
+    if (!lastRefresh) return true;
+
+    const lastRefreshDate = new Date(lastRefresh);
+    const now = new Date();
+
+    const diffTime = now.getTime() - lastRefreshDate.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+    return diffDays >= 7;
+  },
+
+  refreshFunData: () => {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + 1);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const funData: FunData = {
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+      lastRefreshed: now.toISOString(),
+      topCoffeeDrinker: get().calculateTopCoffeeDrinker(),
+      topMaterials: get().calculateTopMaterials(now, 5),
+      totalCoffeeCups: get().calculateTotalCoffeeCups(),
+      perCapitaRanking: get().calculatePerCapitaRanking(),
+    };
+
+    set({ funData, lastFunDataRefresh: now.toISOString() });
+    storage.set("funData", funData);
+    storage.set("lastFunDataRefresh", now.toISOString());
+  },
+
   initPoints: () => {
     const savedLastProcessed = storage.get<string | null>("lastProcessedMonth", null);
     const savedHistorical = storage.get<HistoricalLeaderboard[] | null>("historicalLeaderboards", null);
+    const savedFunData = storage.get<FunData | null>("funData", null);
+    const savedLastFunDataRefresh = storage.get<string | null>("lastFunDataRefresh", null);
 
     let records: PointsRecord[];
     let titles: MonthlyDrinkerTitle[];
@@ -421,6 +649,8 @@ export const usePointsStore = create<PointsState>((set, get) => ({
       drinkerTitles: titles,
       historicalLeaderboards: historical,
       lastProcessedMonth: savedLastProcessed,
+      funData: savedFunData,
+      lastFunDataRefresh: savedLastFunDataRefresh,
     });
 
     setTimeout(() => {
@@ -479,6 +709,10 @@ export const usePointsStore = create<PointsState>((set, get) => ({
       }
 
       get().checkAndProcessMonthEnd();
+
+      if (get().shouldRefreshFunData()) {
+        get().refreshFunData();
+      }
     }, 100);
   },
 }));

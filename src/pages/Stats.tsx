@@ -24,12 +24,13 @@ import { categoryLabels, categoryColors, type MaterialCategory } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStartOfMonth, getEndOfMonth } from "@/utils/date";
 import { exportConsumptionsToCSV, exportRestocksToCSV } from "@/utils/csv";
+import FunDataWall from "@/components/FunDataWall/FunDataWall";
 
 type DateRangeType = "currentMonth" | "lastMonth" | "custom";
 type ExportType = "consumption" | "restock";
 
 export default function Stats() {
-  const [activeTab, setActiveTab] = useState<"overview" | "ranking" | "category">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "ranking" | "category" | "fun">("overview");
   const [showExportModal, setShowExportModal] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -84,6 +85,7 @@ export default function Stats() {
     { key: "overview" as const, label: "总览", icon: "📊" },
     { key: "ranking" as const, label: "排行榜", icon: "🏆" },
     { key: "category" as const, label: "品类分析", icon: "📈" },
+    { key: "fun" as const, label: "趣味数据", icon: "🎉" },
   ];
 
   const getRankStyle = (rank: number) => {
@@ -478,6 +480,16 @@ export default function Stats() {
               })}
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {activeTab === "fun" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <FunDataWall />
         </motion.div>
       )}
 

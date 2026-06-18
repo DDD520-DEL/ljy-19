@@ -503,3 +503,78 @@ export interface DrinkRecipeAvailability {
   unavailableIngredients: { materialId: string; materialName: string; needed: number; available: number }[];
   totalCost: number;
 }
+
+export interface TopCoffeeDrinker {
+  userId: string;
+  user: User;
+  coffeeCups: number;
+  totalCost: number;
+}
+
+export interface TopMaterialItem {
+  materialId: string;
+  materialName: string;
+  materialIcon: string;
+  materialColor: string;
+  quantity: number;
+  totalCost: number;
+}
+
+export interface PerCapitaRankingItem {
+  userId: string;
+  user: User;
+  totalCost: number;
+  consumptionCount: number;
+  averagePerConsumption: number;
+}
+
+export interface FunData {
+  weekStart: string;
+  weekEnd: string;
+  lastRefreshed: string;
+  topCoffeeDrinker: TopCoffeeDrinker | null;
+  topMaterials: TopMaterialItem[];
+  totalCoffeeCups: number;
+  perCapitaRanking: PerCapitaRankingItem[];
+}
+
+export type FunCardType = "topCoffeeDrinker" | "topMaterials" | "totalCoffeeCups" | "perCapitaRanking";
+
+export interface FunCardConfig {
+  type: FunCardType;
+  title: string;
+  icon: string;
+  color: string;
+  description: string;
+}
+
+export const FUN_CARD_CONFIGS: Record<FunCardType, FunCardConfig> = {
+  topCoffeeDrinker: {
+    type: "topCoffeeDrinker",
+    title: "本月最爱喝咖啡的人",
+    icon: "☕",
+    color: "#6F4E37",
+    description: "咖啡成瘾者认证",
+  },
+  topMaterials: {
+    type: "topMaterials",
+    title: "被消耗最多的物资 TOP5",
+    icon: "🏆",
+    color: "#E67E22",
+    description: "人气王争夺战",
+  },
+  totalCoffeeCups: {
+    type: "totalCoffeeCups",
+    title: "本月消灭咖啡杯数",
+    icon: "🥤",
+    color: "#8B4513",
+    description: "集体战斗力展示",
+  },
+  perCapitaRanking: {
+    type: "perCapitaRanking",
+    title: "茶水间人均消费排名",
+    icon: "💰",
+    color: "#27AE60",
+    description: "谁是茶水间土豪",
+  },
+};
