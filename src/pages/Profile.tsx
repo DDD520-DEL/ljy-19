@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -23,6 +23,8 @@ import {
   Trophy,
   Award,
   TrendingUp,
+  Coins,
+  Crown,
 } from "lucide-react";
 import UserSelector from "@/components/UserSelector/UserSelector";
 import CheckInCalendar from "@/components/CheckInCalendar/CheckInCalendar";
@@ -33,6 +35,7 @@ import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useBudgetStore } from "@/store/useBudgetStore";
 import { useReviewStore } from "@/store/useReviewStore";
 import { useCheckInStore } from "@/store/useCheckInStore";
+import { usePointsStore } from "@/store/usePointsStore";
 import { badgeConfigs } from "@/types";
 import { formatCurrency, timeAgo, formatDate } from "@/utils/date";
 import { categoryLabels, type MaterialCategory, type RestockRequestStatus } from "@/types";
@@ -42,21 +45,68 @@ export default function Profile() {
   const navigate = useNavigate();
   const [showUserSelector, setShowUserSelector] = useState(false);
   const { currentUser } = useUserStore();
-  const { getUserStats, getMonthlyConsumptions } = useConsumptionStore();
+  const getUserStats = useConsumptionStore((state) => state.getUserStats);
+  const getMonthlyConsumptions = useConsumptionStore((state) => state.getMonthlyConsumptions);
+  const consumptions = useConsumptionStore((state) => state.consumptions);
   const { materials } = useMaterialStore();
-  const { getRequestsByApplicant } = useRestockRequestStore();
-  const { getUserBudgetInfo } = useBudgetStore();
-  const { getReviewsByUser } = useReviewStore();
-  const { getUserStats: getCheckInStats } = useCheckInStore();
+  const getRequestsByApplicant = useRestockRequestStore((state) => state.getRequestsByApplicant);
+  const requests = useRestockRequestStore((state) => state.requests);
+  const getUserBudgetInfo = useBudgetStore((state) => state.getUserBudgetInfo);
+  const monthlyBudgets = useBudgetStore((state) => state.monthlyBudgets);
+  const getReviewsByUser = useReviewStore((state) => state.getReviewsByUser);
+  const reviews = useReviewStore((state) => state.reviews);
+  const getCheckInStats = useCheckInStore((state) => state.getUserStats);
+  const checkIns = useCheckInStore((state) => state.checkIns);
+  const userBadges = useCheckInStore((state) => state.userBadges);
+  const getUserMonthlyPoints = usePointsStore((state) => state.getUserMonthlyPoints);
+  const getDrinkerTitles = usePointsStore((state) => state.getDrinkerTitles);
+  const hasCurrentMonthTitle = usePointsStore((state) => state.hasCurrentMonthTitle);
+  const getHighestTitleRank = usePointsStore((state) => state.getHighestTitleRank);
+  const pointsRecords = usePointsStore((state) => state.pointsRecords);
+  const drinkerTitles = usePointsStore((state) => state.drinkerTitles);
+  const lastProcessedMonth = usePointsStore((state) => state.lastProcessedMonth);
 
-  const userStats = currentUser ? getUserStats(currentUser.id) : null;
-  const userBudgetInfo = currentUser ? getUserBudgetInfo(currentUser.id) : null;
-  const checkInStats = currentUser ? getCheckInStats(currentUser.id) : null;
-  const monthlyConsumptions = currentUser
-    ? getMonthlyConsumptions(currentUser.id).slice(0, 10)
-    : [];
-  const myRequests = currentUser ? getRequestsByApplicant(currentUser.id).slice(0, 10) : [];
-  const myReviews = currentUser ? getReviewsByUser(currentUser.id) : [];
+  const userStats = useMemo(() => {
+    return currentUser ? getUserStats(currentUser.id) : null;
+  }, [currentUser, getUserStats, consumptions]);
+
+  const userBudgetInfo = useMemo(() => {
+    return currentUser ? getUserBudgetInfo(currentUser.id) : null;
+  }, [currentUser, getUserBudgetInfo, monthlyBudgets, consumptions]);
+
+  const checkInStats = useMemo(() => {
+    return currentUser ? getCheckInStats(currentUser.id) : null;
+  }, [currentUser, getCheckInStats, checkIns, userBadges]);
+
+  const monthlyPoints = useMemo(() => {
+    return currentUser ? getUserMonthlyPoints(currentUser.id) : null;
+  }, [currentUser, getUserMonthlyPoints, pointsRecords]);
+
+  const myDrinkerTitles = useMemo(() => {
+    return currentUser ? getDrinkerTitles(currentUser.id) : [];
+  }, [currentUser, getDrinkerTitles, drinkerTitles]);
+
+  const hasTitle = useMemo(() => {
+    return currentUser ? hasCurrentMonthTitle(currentUser.id) : false;
+  }, [currentUser, hasCurrentMonthTitle, lastProcessedMonth, drinkerTitles]);
+
+  const highestRank = useMemo(() => {
+    return currentUser ? getHighestTitleRank(currentUser.id) : null;
+  }, [currentUser, getHighestTitleRank, drinkerTitles]);
+
+  const monthlyConsumptions = useMemo(() => {
+    return currentUser
+      ? getMonthlyConsumptions(currentUser.id).slice(0, 10)
+      : [];
+  }, [currentUser, getMonthlyConsumptions, consumptions]);
+
+  const myRequests = useMemo(() => {
+    return currentUser ? getRequestsByApplicant(currentUser.id).slice(0, 10) : [];
+  }, [currentUser, getRequestsByApplicant, requests]);
+
+  const myReviews = useMemo(() => {
+    return currentUser ? getReviewsByUser(currentUser.id) : [];
+  }, [currentUser, getReviewsByUser, reviews]);
 
   const requestStatusConfig: Record<
     RestockRequestStatus,
@@ -138,6 +188,20 @@ export default function Profile() {
       color: "text-amber-500",
       bg: "bg-amber-100",
     },
+    {
+      icon: Coins,
+      label: "本月积分",
+      value: `${monthlyPoints?.totalPoints || 0} 积分`,
+      color: "text-amber-600",
+      bg: "bg-amber-100",
+    },
+    {
+      icon: Award,
+      label: "历史最高",
+      value: highestRank ? `第${highestRank}名` : "暂无",
+      color: "text-orange-500",
+      bg: "bg-orange-100",
+    },
   ];
 
   return (
@@ -174,9 +238,18 @@ export default function Profile() {
           </div>
 
           <div className="flex-1">
-            <h2 className="text-xl font-bold">{currentUser?.name}</h2>
-            <p className="text-white/70 text-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold">{currentUser?.name}</h2>
+              {hasTitle && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full">
+                  <Crown className="w-3 h-3" />
+                  本月饮者
+                </span>
+              )}
+            </div>
+            <p className="text-white/70 text-sm mt-1">
               {currentUser?.role === "admin" ? "管理员" : "普通成员"}
+              {myDrinkerTitles.length > 0 && ` · 累计获得 ${myDrinkerTitles.length} 次称号`}
             </p>
           </div>
 
@@ -200,10 +273,10 @@ export default function Profile() {
           </div>
           <div className="text-center border-r border-white/20">
             <p className="text-2xl font-bold flex items-center justify-center gap-1">
-              {checkInStats?.currentStreak || 0}
-              <Flame className="w-4 h-4 text-orange-300" />
+              {monthlyPoints?.totalPoints || 0}
+              <Coins className="w-4 h-4 text-amber-300" />
             </p>
-            <p className="text-xs text-white/70 mt-1">连续签到</p>
+            <p className="text-xs text-white/70 mt-1">本月积分</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold flex items-center justify-center gap-1">

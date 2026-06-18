@@ -390,7 +390,7 @@ export interface CheckInRecord {
   timestamp: string;
 }
 
-export type BadgeType = "drink_master";
+export type BadgeType = "drink_master" | "monthly_drinker";
 
 export interface Badge {
   type: BadgeType;
@@ -399,7 +399,48 @@ export interface Badge {
   icon: string;
   color: string;
   unlockedAt?: string;
+  month?: string;
 }
+
+export interface PointsRecord {
+  id: string;
+  userId: string;
+  points: number;
+  amount: number;
+  consumptionId: string;
+  year: number;
+  month: number;
+  timestamp: string;
+}
+
+export interface MonthlyPoints {
+  userId: string;
+  year: number;
+  month: number;
+  totalPoints: number;
+  totalAmount: number;
+  rank?: number;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  user: User;
+  totalPoints: number;
+  totalAmount: number;
+  rank: number;
+  hasTitle: boolean;
+}
+
+export interface MonthlyDrinkerTitle {
+  userId: string;
+  year: number;
+  month: number;
+  rank: number;
+  awardedAt: string;
+}
+
+export const DRINKER_TITLE_RANKS = [1, 2, 3] as const;
+export const POINTS_PER_YUAN = 1;
 
 export interface UserCheckInStats {
   userId: string;
@@ -410,13 +451,20 @@ export interface UserCheckInStats {
   lastCheckInDate: string | null;
 }
 
-export const badgeConfigs: Record<BadgeType, Omit<Badge, "unlockedAt">> = {
+export const badgeConfigs: Record<BadgeType, Omit<Badge, "unlockedAt" | "month">> = {
   drink_master: {
     type: "drink_master",
     name: "饮者达人",
     description: "连续签到 7 天解锁",
     icon: "🏆",
     color: "#F59E0B",
+  },
+  monthly_drinker: {
+    type: "monthly_drinker",
+    name: "本月饮者",
+    description: "月度积分排行榜前三名获得",
+    icon: "👑",
+    color: "#E67E22",
   },
 };
 

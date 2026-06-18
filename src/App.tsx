@@ -15,6 +15,7 @@ import UserManagement from "@/pages/UserManagement";
 import AnnouncementManagement from "@/pages/AnnouncementManagement";
 import Wishlist from "@/pages/Wishlist";
 import CheckIn from "@/pages/CheckIn";
+import Leaderboard from "@/pages/Leaderboard";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="wishlist" element={<Wishlist />} />
           <Route path="group-purchase" element={<GroupPurchase />} />
           <Route path="group-buy" element={<GroupBuy />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="stats" element={<Stats />} />
           <Route path="duty" element={<Duty />} />
           <Route path="profile" element={<Profile />} />

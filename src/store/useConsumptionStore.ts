@@ -15,6 +15,7 @@ import { mockConsumptions, mockMaterials, mockUsers } from "../data/mockData";
 import { storage } from "../utils/storage";
 import { generateId, isSameMonth, getStartOfMonth, getEndOfMonth, formatDate } from "../utils/date";
 import { setBudgetConsumptionsCache } from "./useBudgetStore";
+import { usePointsStore } from "./usePointsStore";
 
 let materialsCache: Material[] = mockMaterials;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -22,10 +23,16 @@ let usersCache: User[] = mockUsers;
 
 export const setMaterialsCache = (materials: Material[]) => {
   materialsCache = materials;
+  import("./usePointsStore").then(({ setPointsMaterialsCache }) => {
+    setPointsMaterialsCache(materials);
+  });
 };
 
 export const setUsersCache = (users: User[]) => {
   usersCache = users;
+  import("./usePointsStore").then(({ setPointsUsersCache }) => {
+    setPointsUsersCache(users);
+  });
 };
 
 interface ExportFilters {
@@ -67,6 +74,13 @@ export const useConsumptionStore = create<ConsumptionState>((set, get) => ({
     set({ consumptions: updated });
     storage.set("consumptions", updated);
     setBudgetConsumptionsCache(updated);
+
+    const material = materialsCache.find((m) => m.id === materialId);
+    if (material) {
+      const amount = quantity * material.unitPrice;
+      usePointsStore.getState().addPoints(userId, amount, newConsumption.id, newConsumption.timestamp);
+    }
+
     return newConsumption;
   },
 

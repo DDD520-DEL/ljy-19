@@ -19,6 +19,7 @@ import { useInvitationStore } from "@/store/useInvitationStore";
 import { useAnnouncementStore } from "@/store/useAnnouncementStore";
 import { useWishListStore } from "@/store/useWishListStore";
 import { useCheckInStore } from "@/store/useCheckInStore";
+import { usePointsStore, setPointsUsersCache, setPointsMaterialsCache } from "@/store/usePointsStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,6 +39,7 @@ export default function Layout() {
   const { initAnnouncements, checkAndUpdateExpired } = useAnnouncementStore();
   const { initWishes } = useWishListStore();
   const { initCheckIns } = useCheckInStore();
+  const { initPoints, checkAndProcessMonthEnd } = usePointsStore();
 
   useEffect(() => {
     initUsers();
@@ -55,6 +57,7 @@ export default function Layout() {
     initAnnouncements();
     initWishes();
     initCheckIns();
+    initPoints();
   }, []);
 
   useEffect(() => {
@@ -64,15 +67,17 @@ export default function Layout() {
       checkAndSettleGroupBuy();
       checkAndRotateDuty();
       checkAndUpdateExpired();
+      checkAndProcessMonthEnd();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired]);
+  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired, checkAndProcessMonthEnd]);
 
   useEffect(() => {
     if (materials.length > 0) {
       setMaterialsCache(materials);
       setBudgetMaterialsCache(materials);
+      setPointsMaterialsCache(materials);
     }
   }, [materials]);
 
@@ -80,6 +85,7 @@ export default function Layout() {
     if (users.length > 0) {
       setUsersCache(users);
       setBudgetUsersCache(users);
+      setPointsUsersCache(users);
     }
   }, [users]);
 

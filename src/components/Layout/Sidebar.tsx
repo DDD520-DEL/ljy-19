@@ -17,6 +17,7 @@ import {
   CalendarCheck,
   Flame,
   ShoppingCart,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
@@ -53,6 +54,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: "/group-buy", label: "团购预约", icon: ShoppingCart },
     { path: "/vote", label: "我想喝什么", icon: Vote },
     { path: "/wishlist", label: "心愿单", icon: Star, badge: isAdmin ? pendingWishCount : 0 },
+    { path: "/leaderboard", label: "积分排行", icon: Trophy },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },
     { path: "/announcements", label: "公告通知", icon: Megaphone },

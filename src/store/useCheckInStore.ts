@@ -31,6 +31,7 @@ interface CheckInState {
   getUserStats: (userId: string) => UserCheckInStats;
   getStreakDays: (userId: string) => number;
   getTopCheckInUsers: (limit?: number) => { userId: string; total: number; streak: number }[];
+  addBadge: (userId: string, badge: Badge) => boolean;
   initCheckIns: () => void;
 }
 
@@ -116,6 +117,26 @@ const loadUserBadges = (): UserBadgesMap => {
 export const useCheckInStore = create<CheckInState>((set, get) => ({
   checkIns: [],
   userBadges: {},
+
+  addBadge: (userId: string, badge: Badge) => {
+    const currentBadges = get().userBadges[userId] || [];
+    const existingTypes = new Set(currentBadges.map((b) => `${b.type}-${b.month || ""}`));
+    const badgeKey = `${badge.type}-${badge.month || ""}`;
+
+    if (existingTypes.has(badgeKey)) {
+      return false;
+    }
+
+    const updatedBadges = [...currentBadges, badge];
+    const updatedUserBadges = {
+      ...get().userBadges,
+      [userId]: updatedBadges,
+    };
+
+    set({ userBadges: updatedUserBadges });
+    saveUserBadges(updatedUserBadges);
+    return true;
+  },
 
   checkIn: (userId: string) => {
     const today = new Date();
