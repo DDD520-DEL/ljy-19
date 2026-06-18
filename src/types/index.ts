@@ -578,3 +578,77 @@ export const FUN_CARD_CONFIGS: Record<FunCardType, FunCardConfig> = {
     description: "谁是茶水间土豪",
   },
 };
+
+export type RecyclableType = "coffee_grounds" | "tea_bags" | "packaging_box" | "paper_cups" | "plastic_bottles" | "others";
+
+export interface RecyclableCategory {
+  type: RecyclableType;
+  name: string;
+  icon: string;
+  color: string;
+  unit: string;
+}
+
+export const RECYCLABLE_CATEGORIES: RecyclableCategory[] = [
+  { type: "coffee_grounds", name: "咖啡渣", icon: "☕", color: "#6F4E37", unit: "kg" },
+  { type: "tea_bags", name: "茶包", icon: "🍵", color: "#88B04B", unit: "kg" },
+  { type: "packaging_box", name: "包装盒", icon: "📦", color: "#D4A574", unit: "kg" },
+  { type: "paper_cups", name: "纸杯", icon: "🥤", color: "#F5DEB3", unit: "kg" },
+  { type: "plastic_bottles", name: "塑料瓶", icon: "🧴", color: "#87CEEB", unit: "kg" },
+  { type: "others", name: "其他可回收物", icon: "♻️", color: "#2ECC71", unit: "kg" },
+];
+
+export const recyclableTypeLabels: Record<RecyclableType, string> = {
+  coffee_grounds: "咖啡渣",
+  tea_bags: "茶包",
+  packaging_box: "包装盒",
+  paper_cups: "纸杯",
+  plastic_bottles: "塑料瓶",
+  others: "其他可回收物",
+};
+
+export const recyclableTypeColors: Record<RecyclableType, string> = {
+  coffee_grounds: "#6F4E37",
+  tea_bags: "#88B04B",
+  packaging_box: "#D4A574",
+  paper_cups: "#F5DEB3",
+  plastic_bottles: "#87CEEB",
+  others: "#2ECC71",
+};
+
+export interface RecyclingRecord {
+  id: string;
+  operatorId: string;
+  weekStart: string;
+  weekEnd: string;
+  items: {
+    type: RecyclableType;
+    weight: number;
+  }[];
+  notes?: string;
+  createdAt: string;
+}
+
+export interface MonthlyRecyclingStats {
+  year: number;
+  month: number;
+  totalWeight: number;
+  byType: Record<RecyclableType, number>;
+  recordsCount: number;
+}
+
+export interface EnvironmentalImpact {
+  plasticCupsSaved: number;
+  treesSaved: number;
+  waterSavedLiters: number;
+  co2ReducedKg: number;
+  energySavedKwh: number;
+}
+
+export const ENVIRONMENTAL_CONVERSION = {
+  plasticCupsPerKg: 25,
+  treesPerKg: 0.01,
+  waterLitersPerKg: 20,
+  co2KgPerKg: 0.8,
+  energyKwhPerKg: 1.5,
+};

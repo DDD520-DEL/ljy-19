@@ -21,6 +21,7 @@ import { useWishListStore } from "@/store/useWishListStore";
 import { useCheckInStore } from "@/store/useCheckInStore";
 import { usePointsStore, setPointsUsersCache, setPointsMaterialsCache } from "@/store/usePointsStore";
 import { useSpecialDrinkStore } from "@/store/useSpecialDrinkStore";
+import { useRecyclingStore } from "@/store/useRecyclingStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,6 +43,7 @@ export default function Layout() {
   const { initCheckIns } = useCheckInStore();
   const { initPoints, checkAndProcessMonthEnd } = usePointsStore();
   const { initSpecialDrinks, checkAndUpdateDaily } = useSpecialDrinkStore();
+  const { initRecycling } = useRecyclingStore();
 
   useEffect(() => {
     initUsers();
@@ -61,6 +63,7 @@ export default function Layout() {
     initCheckIns();
     initPoints();
     initSpecialDrinks();
+    initRecycling();
   }, []);
 
   useEffect(() => {

@@ -18,7 +18,9 @@ import {
   Flame,
   ShoppingCart,
   Trophy,
+  Leaf,
 } from "lucide-react";
+import { useRecyclingStore } from "@/store/useRecyclingStore";
 import { cn } from "@/lib/utils";
 import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useUserStore } from "@/store/useUserStore";
@@ -36,12 +38,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { currentUser, getPendingUsers } = useUserStore();
   const { getWishesByStatus } = useWishListStore();
   const { hasCheckedInToday, getStreakDays } = useCheckInStore();
+  const { hasRecordedThisWeek } = useRecyclingStore();
   const pendingCount = getPendingCount();
   const pendingUserCount = getPendingUsers().length;
   const pendingWishCount = getWishesByStatus("pending").length;
   const isAdmin = currentUser?.role === "admin";
   const checkedInToday = currentUser ? hasCheckedInToday(currentUser.id) : false;
   const streakDays = currentUser ? getStreakDays(currentUser.id) : 0;
+  const recyclingPending = !hasRecordedThisWeek();
 
   const navItems = [
     { path: "/", label: "首页", icon: Home },
@@ -57,6 +61,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: "/leaderboard", label: "积分排行", icon: Trophy },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },
+    { path: "/recycling", label: "环保回收", icon: Leaf, badge: recyclingPending ? 1 : 0 },
     { path: "/announcements", label: "公告通知", icon: Megaphone },
     ...(isAdmin
       ? [

@@ -16,6 +16,7 @@ import AnnouncementManagement from "@/pages/AnnouncementManagement";
 import Wishlist from "@/pages/Wishlist";
 import CheckIn from "@/pages/CheckIn";
 import Leaderboard from "@/pages/Leaderboard";
+import Recycling from "@/pages/Recycling";
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="stats" element={<Stats />} />
           <Route path="duty" element={<Duty />} />
+          <Route path="recycling" element={<Recycling />} />
           <Route path="profile" element={<Profile />} />
           <Route path="invitations" element={<InvitationManagement />} />
           <Route path="users" element={<UserManagement />} />

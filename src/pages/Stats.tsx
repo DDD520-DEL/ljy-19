@@ -12,15 +12,18 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
-import { Trophy, TrendingUp, Users, Coffee, DollarSign, Download, Check } from "lucide-react";
+import { Trophy, TrendingUp, Users, Coffee, DollarSign, Download, Check, Leaf, Recycle, Droplets, Wind, Zap, TreePine } from "lucide-react";
 import StatsCard from "@/components/StatsCard/StatsCard";
 import Modal from "@/components/Modal/Modal";
 import Toast from "@/components/Toast/Toast";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useMaterialStore } from "@/store/useMaterialStore";
-import { categoryLabels, categoryColors, type MaterialCategory } from "@/types";
+import { useRecyclingStore } from "@/store/useRecyclingStore";
+import { categoryLabels, categoryColors, type MaterialCategory, recyclableTypeLabels, recyclableTypeColors, RECYCLABLE_CATEGORIES } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency, getStartOfMonth, getEndOfMonth } from "@/utils/date";
 import { exportConsumptionsToCSV, exportRestocksToCSV } from "@/utils/csv";
@@ -30,7 +33,7 @@ type DateRangeType = "currentMonth" | "lastMonth" | "custom";
 type ExportType = "consumption" | "restock";
 
 export default function Stats() {
-  const [activeTab, setActiveTab] = useState<"overview" | "ranking" | "category" | "fun">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "ranking" | "category" | "environment" | "fun">("overview");
   const [showExportModal, setShowExportModal] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -48,10 +51,22 @@ export default function Stats() {
   const { getRestocksByFilters } = useMaterialStore();
   const { users } = useUserStore();
   const { materials } = useMaterialStore();
+  const {
+    getMonthlyStats: getRecyclingMonthlyStats,
+    getHistoricalMonthlyStats,
+    getMonthlyEnvironmentalImpact,
+    getTypeBreakdown: getRecyclingTypeBreakdown,
+    calculateEnvironmentalImpact,
+  } = useRecyclingStore();
 
   const monthlyStats = getMonthlyStats();
   const topUsers = getTopUsers(new Date(), 10);
   const categoryStats = getCategoryStats();
+
+  const recyclingStats = getRecyclingMonthlyStats();
+  const historicalRecycling = getHistoricalMonthlyStats(6);
+  const envImpact = getMonthlyEnvironmentalImpact();
+  const recyclingBreakdown = getRecyclingTypeBreakdown();
 
   const averagePerPerson =
     monthlyStats.activeUsers > 0 ? monthlyStats.totalCost / monthlyStats.activeUsers : 0;
@@ -81,10 +96,32 @@ export default function Stats() {
       });
   }, [monthlyStats.byMaterial, materials]);
 
+  const recyclingTrendData = useMemo(() => {
+    return historicalRecycling.map((stat) => ({
+      month: `${stat.month + 1}月`,
+      回收量: stat.totalWeight,
+      节省塑料杯: Math.round(stat.totalWeight * 25),
+    }));
+  }, [historicalRecycling]);
+
+  const recyclingPieData = useMemo(() => {
+    return recyclingBreakdown.map((item) => ({
+      name: recyclableTypeLabels[item.type],
+      value: item.weight,
+      color: recyclableTypeColors[item.type],
+    }));
+  }, [recyclingBreakdown]);
+
+  const cumulativeEnvImpact = useMemo(() => {
+    const totalWeight = historicalRecycling.reduce((sum, s) => sum + s.totalWeight, 0);
+    return calculateEnvironmentalImpact(totalWeight);
+  }, [historicalRecycling, calculateEnvironmentalImpact]);
+
   const tabs = [
     { key: "overview" as const, label: "总览", icon: "📊" },
     { key: "ranking" as const, label: "排行榜", icon: "🏆" },
     { key: "category" as const, label: "品类分析", icon: "📈" },
+    { key: "environment" as const, label: "环保数据", icon: "🌿" },
     { key: "fun" as const, label: "趣味数据", icon: "🎉" },
   ];
 
@@ -478,6 +515,251 @@ export default function Stats() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === "environment" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard
+              title="本月回收总量"
+              value={`${recyclingStats.totalWeight} kg`}
+              subtitle={`${recyclingStats.recordsCount} 次记录`}
+              icon={<Recycle className="w-5 h-5" />}
+              color="matcha"
+            />
+            <StatsCard
+              title="累计减少塑料杯"
+              value={`${cumulativeEnvImpact.plasticCupsSaved} 个`}
+              subtitle="近 6 个月累计"
+              icon={<Leaf className="w-5 h-5" />}
+              color="coffee"
+            />
+            <StatsCard
+              title="累计保护树木"
+              value={`${cumulativeEnvImpact.treesSaved} 棵`}
+              subtitle="近 6 个月累计"
+              icon={<TreePine className="w-5 h-5" />}
+              color="matcha"
+            />
+            <StatsCard
+              title="累计节约水资源"
+              value={`${cumulativeEnvImpact.waterSavedLiters} L`}
+              subtitle="近 6 个月累计"
+              icon={<Droplets className="w-5 h-5" />}
+              color="amber"
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-soft p-6">
+            <h3 className="text-lg font-bold text-coffee-800 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-matcha-500" />
+              回收量历史趋势（近 6 个月）
+            </h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={recyclingTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E8D7C3" />
+                  <XAxis dataKey="month" stroke="#A67C52" fontSize={12} />
+                  <YAxis
+                    yAxisId="left"
+                    stroke="#A67C52"
+                    fontSize={12}
+                    label={{ value: "kg", angle: -90, position: "insideLeft", style: { fill: "#A67C52" } }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#88B04B"
+                    fontSize={12}
+                    label={{ value: "个", angle: 90, position: "insideRight", style: { fill: "#88B04B" } }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #E8D7C3",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 20px -2px rgba(111, 78, 55, 0.15)",
+                    }}
+                    labelStyle={{ color: "#5A3F2D", fontWeight: 600 }}
+                  />
+                  <Legend
+                    verticalAlign="top"
+                    height={36}
+                    formatter={(value) => (
+                      <span className="text-sm text-coffee-600">{value}</span>
+                    )}
+                  />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="回收量"
+                    stroke="#6F4E37"
+                    strokeWidth={3}
+                    dot={{ fill: "#6F4E37", r: 5 }}
+                    activeDot={{ r: 7 }}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="节省塑料杯"
+                    stroke="#88B04B"
+                    strokeWidth={3}
+                    dot={{ fill: "#88B04B", r: 5 }}
+                    activeDot={{ r: 7 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl shadow-soft p-6">
+              <h3 className="text-lg font-bold text-coffee-800 mb-4">本月回收分类占比</h3>
+              {recyclingPieData.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-coffee-400">
+                  暂无回收数据
+                </div>
+              ) : (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={recyclingPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {recyclingPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "white",
+                          border: "1px solid #E8D7C3",
+                          borderRadius: "12px",
+                          boxShadow: "0 4px 20px -2px rgba(111, 78, 55, 0.15)",
+                        }}
+                        formatter={(value: number) => [`${value} kg`, "重量"]}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value) => (
+                          <span className="text-sm text-coffee-600">{value}</span>
+                        )}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-soft p-6">
+              <h3 className="text-lg font-bold text-coffee-800 mb-4">累计环保贡献明细</h3>
+              <div className="space-y-3">
+                {[
+                  { label: "减少一次性塑料杯", value: cumulativeEnvImpact.plasticCupsSaved, unit: "个", icon: <Recycle className="w-4 h-4" />, color: "bg-coffee-100 text-coffee-600" },
+                  { label: "保护树木", value: cumulativeEnvImpact.treesSaved, unit: "棵", icon: <TreePine className="w-4 h-4" />, color: "bg-matcha-100 text-matcha-600" },
+                  { label: "节约清洁用水", value: cumulativeEnvImpact.waterSavedLiters, unit: "L", icon: <Droplets className="w-4 h-4" />, color: "bg-blue-100 text-blue-600" },
+                  { label: "减少 CO₂ 排放", value: cumulativeEnvImpact.co2ReducedKg, unit: "kg", icon: <Wind className="w-4 h-4" />, color: "bg-amber-100 text-amber-600" },
+                  { label: "节约能源消耗", value: cumulativeEnvImpact.energySavedKwh, unit: "度", icon: <Zap className="w-4 h-4" />, color: "bg-purple-100 text-purple-600" },
+                ].map((item, index) => {
+                  const total = Math.max(
+                    cumulativeEnvImpact.plasticCupsSaved,
+                    cumulativeEnvImpact.treesSaved * 100,
+                    cumulativeEnvImpact.waterSavedLiters,
+                    cumulativeEnvImpact.co2ReducedKg * 10,
+                    cumulativeEnvImpact.energySavedKwh * 10,
+                    1
+                  );
+                  const normalizedValue =
+                    item.label === "保护树木"
+                      ? (item.value * 100) / total
+                      : item.label === "减少 CO₂ 排放"
+                      ? (item.value * 10) / total
+                      : item.label === "节约能源消耗"
+                      ? (item.value * 10) / total
+                      : item.value / total;
+                  return (
+                    <motion.div
+                      key={item.label}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-1.5 rounded-lg ${item.color}`}>
+                            {item.icon}
+                          </div>
+                          <span className="text-sm font-medium text-coffee-700">{item.label}</span>
+                        </div>
+                        <span className="text-sm text-coffee-600">
+                          <span className="font-bold text-coffee-800">{item.value}</span> {item.unit}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-coffee-100 rounded-full overflow-hidden ml-8">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(normalizedValue * 100, 100)}%` }}
+                          transition={{ duration: 0.6, delay: index * 0.05 }}
+                          className="h-full bg-gradient-to-r from-matcha-400 to-matcha-600 rounded-full"
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-soft p-6">
+            <h3 className="text-lg font-bold text-coffee-800 mb-4">月度回收明细</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-coffee-100">
+                    <th className="text-left py-3 px-4 font-medium text-coffee-500">月份</th>
+                    <th className="text-left py-3 px-4 font-medium text-coffee-500">记录次数</th>
+                    <th className="text-right py-3 px-4 font-medium text-coffee-500">回收总量</th>
+                    <th className="text-right py-3 px-4 font-medium text-coffee-500">减少塑料杯</th>
+                    <th className="text-right py-3 px-4 font-medium text-coffee-500">保护树木</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historicalRecycling.map((stat, index) => {
+                    const impact = calculateEnvironmentalImpact(stat.totalWeight);
+                    return (
+                      <motion.tr
+                        key={`${stat.year}-${stat.month}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="border-b border-coffee-50 hover:bg-coffee-50/50 transition-colors"
+                      >
+                        <td className="py-3 px-4">
+                          <span className="font-medium text-coffee-700">{stat.year}年{stat.month + 1}月</span>
+                        </td>
+                        <td className="py-3 px-4 text-coffee-600">{stat.recordsCount} 次</td>
+                        <td className="py-3 px-4 text-right font-bold text-coffee-800">{stat.totalWeight} kg</td>
+                        <td className="py-3 px-4 text-right text-matcha-600 font-medium">{impact.plasticCupsSaved} 个</td>
+                        <td className="py-3 px-4 text-right text-coffee-600">{impact.treesSaved} 棵</td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </motion.div>
