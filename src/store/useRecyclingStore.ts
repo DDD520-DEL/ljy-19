@@ -68,6 +68,20 @@ interface RecyclingState {
     notes?: string
   ) => RecyclingRecord;
 
+  updateRecord: (
+    recordId: string,
+    items: { type: RecyclableType; weight: number }[],
+    notes?: string
+  ) => RecyclingRecord | null;
+
+  upsertRecord: (
+    operatorId: string,
+    weekStart: string,
+    weekEnd: string,
+    items: { type: RecyclableType; weight: number }[],
+    notes?: string
+  ) => RecyclingRecord;
+
   getRecordsByWeek: (weekStart: string, weekEnd: string) => RecyclingRecord[];
   getCurrentWeekRecord: () => RecyclingRecord | null;
   hasRecordedThisWeek: () => boolean;
@@ -79,6 +93,7 @@ interface RecyclingState {
   calculateEnvironmentalImpact: (totalWeight: number) => EnvironmentalImpact;
   getMonthlyEnvironmentalImpact: (date?: Date) => EnvironmentalImpact;
 
+  dedupeRecords: () => void;
   initRecycling: () => void;
 }
 
@@ -102,6 +117,64 @@ export const useRecyclingStore = create<RecyclingState>((set, get) => ({
     storage.set("recyclingRecords", updated);
 
     return newRecord;
+  },
+
+  updateRecord: (recordId, items, notes) => {
+    const filteredItems = items.filter((item) => item.weight > 0);
+    let updatedRecord: RecyclingRecord | null = null;
+
+    const updated = get().records.map((r) => {
+      if (r.id === recordId) {
+        updatedRecord = {
+          ...r,
+          items: filteredItems,
+          notes,
+          createdAt: new Date().toISOString(),
+        };
+        return updatedRecord;
+      }
+      return r;
+    });
+
+    if (updatedRecord) {
+      set({ records: updated });
+      storage.set("recyclingRecords", updated);
+    }
+
+    return updatedRecord;
+  },
+
+  upsertRecord: (operatorId, weekStart, weekEnd, items, notes) => {
+    const existing = get().records.find(
+      (r) => r.weekStart === weekStart && r.weekEnd === weekEnd
+    );
+
+    if (existing) {
+      const updated = get().updateRecord(existing.id, items, notes);
+      return updated!;
+    } else {
+      return get().addRecord(operatorId, weekStart, weekEnd, items, notes);
+    }
+  },
+
+  dedupeRecords: () => {
+    const seen = new Map<string, RecyclingRecord>();
+    get().records.forEach((record) => {
+      const key = `${record.weekStart}_${record.weekEnd}`;
+      if (!seen.has(key)) {
+        seen.set(key, record);
+      } else {
+        const existing = seen.get(key)!;
+        if (new Date(record.createdAt) > new Date(existing.createdAt)) {
+          seen.set(key, record);
+        }
+      }
+    });
+    const deduped = Array.from(seen.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    set({ records: deduped });
+    storage.set("recyclingRecords", deduped);
   },
 
   getRecordsByWeek: (weekStart, weekEnd) => {
@@ -213,5 +286,6 @@ export const useRecyclingStore = create<RecyclingState>((set, get) => ({
     }
 
     set({ records });
+    get().dedupeRecords();
   },
 }));

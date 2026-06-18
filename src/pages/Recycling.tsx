@@ -45,7 +45,7 @@ export default function Recycling() {
 
   const {
     records,
-    addRecord,
+    upsertRecord,
     getMonthlyStats,
     getMonthlyEnvironmentalImpact,
     getTypeBreakdown,
@@ -123,9 +123,9 @@ export default function Recycling() {
     const weekStart = editingRecord?.weekStart || defaultWeekStart;
     const weekEnd = editingRecord?.weekEnd || defaultWeekEnd;
 
-    addRecord(currentUser.id, weekStart, weekEnd, items, formNotes || undefined);
+    upsertRecord(currentUser.id, weekStart, weekEnd, items, formNotes || undefined);
     setShowRecordModal(false);
-    showToast("回收记录已保存");
+    showToast(recordedThisWeek ? "回收记录已更新" : "回收记录已保存");
   };
 
   const totalWeekWeight = useMemo(() => {
