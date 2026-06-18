@@ -476,3 +476,30 @@ export const badgeConfigs: Record<BadgeType, Omit<Badge, "unlockedAt" | "month">
 };
 
 export const STREAK_FOR_DRINK_MASTER = 7;
+
+export interface DrinkRecipeIngredient {
+  materialId: string;
+  materialName: string;
+  quantity: number;
+  unit: string;
+}
+
+export interface DrinkRecipe {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+  difficulty: "easy" | "medium" | "hard";
+  prepTime: number;
+  ingredients: DrinkRecipeIngredient[];
+  steps: string[];
+  tags: string[];
+}
+
+export interface DrinkRecipeAvailability {
+  recipeId: string;
+  available: boolean;
+  unavailableIngredients: { materialId: string; materialName: string; needed: number; available: number }[];
+  totalCost: number;
+}

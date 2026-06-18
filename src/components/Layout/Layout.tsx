@@ -20,6 +20,7 @@ import { useAnnouncementStore } from "@/store/useAnnouncementStore";
 import { useWishListStore } from "@/store/useWishListStore";
 import { useCheckInStore } from "@/store/useCheckInStore";
 import { usePointsStore, setPointsUsersCache, setPointsMaterialsCache } from "@/store/usePointsStore";
+import { useSpecialDrinkStore } from "@/store/useSpecialDrinkStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,6 +41,7 @@ export default function Layout() {
   const { initWishes } = useWishListStore();
   const { initCheckIns } = useCheckInStore();
   const { initPoints, checkAndProcessMonthEnd } = usePointsStore();
+  const { initSpecialDrinks, checkAndUpdateDaily } = useSpecialDrinkStore();
 
   useEffect(() => {
     initUsers();
@@ -58,6 +60,7 @@ export default function Layout() {
     initWishes();
     initCheckIns();
     initPoints();
+    initSpecialDrinks();
   }, []);
 
   useEffect(() => {
@@ -68,10 +71,11 @@ export default function Layout() {
       checkAndRotateDuty();
       checkAndUpdateExpired();
       checkAndProcessMonthEnd();
+      checkAndUpdateDaily();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired, checkAndProcessMonthEnd]);
+  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired, checkAndProcessMonthEnd, checkAndUpdateDaily]);
 
   useEffect(() => {
     if (materials.length > 0) {

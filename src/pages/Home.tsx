@@ -10,6 +10,7 @@ import AnnouncementBanner from "@/components/AnnouncementBanner/AnnouncementBann
 import AnnouncementDetail from "@/components/AnnouncementDetail/AnnouncementDetail";
 import CheckInCard from "@/components/CheckInCard/CheckInCard";
 import LeaderboardTop3 from "@/components/LeaderboardTop3/LeaderboardTop3";
+import DailySpecialDrink from "@/components/DailySpecialDrink/DailySpecialDrink";
 import { useMaterialStore } from "@/store/useMaterialStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useConsumptionStore } from "@/store/useConsumptionStore";
@@ -174,6 +175,8 @@ export default function Home() {
       />
 
       <AnnouncementBanner onViewDetail={handleViewAnnouncement} />
+
+      <DailySpecialDrink />
 
       <CheckInCard />
 
