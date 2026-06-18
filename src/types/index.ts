@@ -439,6 +439,13 @@ export interface MonthlyDrinkerTitle {
   awardedAt: string;
 }
 
+export interface HistoricalLeaderboard {
+  year: number;
+  month: number;
+  entries: LeaderboardEntry[];
+  archivedAt: string;
+}
+
 export const DRINKER_TITLE_RANKS = [1, 2, 3] as const;
 export const POINTS_PER_YUAN = 1;
 

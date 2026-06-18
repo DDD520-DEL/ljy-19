@@ -4,6 +4,7 @@ import type {
   MonthlyPoints,
   LeaderboardEntry,
   MonthlyDrinkerTitle,
+  HistoricalLeaderboard,
   User,
   Badge,
 } from "../types";
@@ -30,11 +31,18 @@ export const setPointsMaterialsCache = (materials: typeof mockMaterials) => {
 
 const generateMockPointsRecords = (): PointsRecord[] => {
   const records: PointsRecord[] = [];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
 
   mockConsumptions.forEach((consumption) => {
     const date = new Date(consumption.timestamp);
     const material = materialsCache.find((m) => m.id === consumption.materialId);
     if (!material) return;
+
+    if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
+      return;
+    }
 
     const amount = consumption.quantity * material.unitPrice;
     const points = Math.floor(amount * POINTS_PER_YUAN);
@@ -95,6 +103,7 @@ const generateMockDrinkerTitles = (): MonthlyDrinkerTitle[] => {
 interface PointsState {
   pointsRecords: PointsRecord[];
   drinkerTitles: MonthlyDrinkerTitle[];
+  historicalLeaderboards: HistoricalLeaderboard[];
   lastProcessedMonth: string | null;
 
   addPoints: (
@@ -113,6 +122,7 @@ interface PointsState {
   hasCurrentMonthTitle: (userId: string) => boolean;
   getHighestTitleRank: (userId: string) => number | null;
 
+  archiveMonthlyLeaderboard: (date: Date) => void;
   checkAndProcessMonthEnd: () => { awarded: number; reset: number } | null;
   resetMonthlyPoints: (date?: Date) => number;
 
@@ -122,6 +132,7 @@ interface PointsState {
 export const usePointsStore = create<PointsState>((set, get) => ({
   pointsRecords: [],
   drinkerTitles: [],
+  historicalLeaderboards: [],
   lastProcessedMonth: null,
 
   addPoints: (
@@ -180,6 +191,13 @@ export const usePointsStore = create<PointsState>((set, get) => ({
     const year = date.getFullYear();
     const month = date.getMonth();
     const isCurrentMonth = isSameMonth(date, new Date());
+
+    const archived = get().historicalLeaderboards.find(
+      (h) => h.year === year && h.month === month
+    );
+    if (archived) {
+      return limit ? archived.entries.slice(0, limit) : archived.entries;
+    }
 
     const monthlyRecords = get().pointsRecords.filter(
       (r) => r.year === year && r.month === month
@@ -273,6 +291,33 @@ export const usePointsStore = create<PointsState>((set, get) => ({
     return Math.min(...titles.map((t) => t.rank));
   },
 
+  archiveMonthlyLeaderboard: (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    const existing = get().historicalLeaderboards.find(
+      (h) => h.year === year && h.month === month
+    );
+    if (existing) return;
+
+    const rawEntries = get().getMonthlyLeaderboard(date);
+    const entries = rawEntries.map((entry) => ({
+      ...entry,
+      hasTitle: DRINKER_TITLE_RANKS.includes(entry.rank as 1 | 2 | 3),
+    }));
+
+    const archived: HistoricalLeaderboard = {
+      year,
+      month,
+      entries,
+      archivedAt: new Date().toISOString(),
+    };
+
+    const updated = [...get().historicalLeaderboards, archived];
+    set({ historicalLeaderboards: updated });
+    storage.set("historicalLeaderboards", updated);
+  },
+
   checkAndProcessMonthEnd: () => {
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
@@ -290,6 +335,8 @@ export const usePointsStore = create<PointsState>((set, get) => ({
       storage.set("lastProcessedMonth", currentMonthKey);
       return null;
     }
+
+    get().archiveMonthlyLeaderboard(prevMonth);
 
     const leaderboard = get().getMonthlyLeaderboard(prevMonth);
     const topThree = leaderboard.slice(0, 3);
@@ -316,6 +363,8 @@ export const usePointsStore = create<PointsState>((set, get) => ({
       useCheckInStore.getState().addBadge(title.userId, badge);
     });
 
+    const resetCount = get().resetMonthlyPoints(prevMonth);
+
     const updatedTitles = [...get().drinkerTitles, ...newTitles];
     set({
       drinkerTitles: updatedTitles,
@@ -326,7 +375,7 @@ export const usePointsStore = create<PointsState>((set, get) => ({
 
     return {
       awarded: newTitles.length,
-      reset: 0,
+      reset: resetCount,
     };
   },
 
@@ -346,27 +395,89 @@ export const usePointsStore = create<PointsState>((set, get) => ({
   },
 
   initPoints: () => {
-    const savedRecords = storage.get<PointsRecord[] | null>("pointsRecords", null);
-    const savedTitles = storage.get<MonthlyDrinkerTitle[] | null>("drinkerTitles", null);
     const savedLastProcessed = storage.get<string | null>("lastProcessedMonth", null);
+    const savedHistorical = storage.get<HistoricalLeaderboard[] | null>("historicalLeaderboards", null);
 
-    const records = savedRecords || generateMockPointsRecords();
-    const titles = savedTitles || generateMockDrinkerTitles();
+    let records: PointsRecord[];
+    let titles: MonthlyDrinkerTitle[];
+    let historical: HistoricalLeaderboard[];
+
+    if (!savedLastProcessed) {
+      records = generateMockPointsRecords();
+      titles = generateMockDrinkerTitles();
+      historical = [];
+
+      storage.set("pointsRecords", records);
+      storage.set("drinkerTitles", titles);
+      storage.set("historicalLeaderboards", historical);
+    } else {
+      records = storage.get<PointsRecord[] | null>("pointsRecords", null) || generateMockPointsRecords();
+      titles = storage.get<MonthlyDrinkerTitle[] | null>("drinkerTitles", null) || generateMockDrinkerTitles();
+      historical = savedHistorical || [];
+    }
 
     set({
       pointsRecords: records,
       drinkerTitles: titles,
+      historicalLeaderboards: historical,
       lastProcessedMonth: savedLastProcessed,
     });
 
-    if (!savedRecords) {
-      storage.set("pointsRecords", records);
-    }
-    if (!savedTitles) {
-      storage.set("drinkerTitles", titles);
-    }
-
     setTimeout(() => {
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthKey = `${prevMonth.getFullYear()}-${prevMonth.getMonth()}`;
+
+      const state = get();
+      if (!state.lastProcessedMonth) {
+        const hasPrevMonthRecords = state.pointsRecords.some(
+          (r) => r.year === prevMonth.getFullYear() && r.month === prevMonth.getMonth()
+        );
+
+        if (hasPrevMonthRecords) {
+          get().archiveMonthlyLeaderboard(prevMonth);
+
+          const leaderboard = get().getMonthlyLeaderboard(prevMonth);
+          const topThree = leaderboard.slice(0, 3);
+
+          const newTitles: MonthlyDrinkerTitle[] = [];
+          topThree.forEach((entry, index) => {
+            if (entry.totalPoints > 0) {
+              newTitles.push({
+                userId: entry.userId,
+                year: prevMonth.getFullYear(),
+                month: prevMonth.getMonth(),
+                rank: index + 1,
+                awardedAt: now.toISOString(),
+              });
+            }
+          });
+
+          newTitles.forEach((title) => {
+            const badge: Badge = {
+              ...badgeConfigs.monthly_drinker,
+              unlockedAt: title.awardedAt,
+              month: `${title.year}-${String(title.month + 1).padStart(2, "0")}`,
+            };
+            useCheckInStore.getState().addBadge(title.userId, badge);
+          });
+
+          get().resetMonthlyPoints(prevMonth);
+
+          const updatedTitles = [...get().drinkerTitles, ...newTitles];
+          set({
+            drinkerTitles: updatedTitles,
+            lastProcessedMonth: prevMonthKey,
+          });
+          storage.set("drinkerTitles", updatedTitles);
+          storage.set("lastProcessedMonth", prevMonthKey);
+        } else {
+          set({ lastProcessedMonth: prevMonthKey });
+          storage.set("lastProcessedMonth", prevMonthKey);
+        }
+      }
+
       get().checkAndProcessMonthEnd();
     }, 100);
   },

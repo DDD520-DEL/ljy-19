@@ -42,7 +42,8 @@ export default function LeaderboardTop3() {
   const navigate = useNavigate();
   const getTopThree = usePointsStore((state) => state.getTopThree);
   const pointsRecords = usePointsStore((state) => state.pointsRecords);
-  const topThree = useMemo(() => getTopThree(), [getTopThree, pointsRecords]);
+  const historicalLeaderboards = usePointsStore((state) => state.historicalLeaderboards);
+  const topThree = useMemo(() => getTopThree(), [getTopThree, pointsRecords, historicalLeaderboards]);
 
   if (topThree.length === 0) {
     return null;

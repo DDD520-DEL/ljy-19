@@ -64,6 +64,7 @@ export default function Profile() {
   const getHighestTitleRank = usePointsStore((state) => state.getHighestTitleRank);
   const pointsRecords = usePointsStore((state) => state.pointsRecords);
   const drinkerTitles = usePointsStore((state) => state.drinkerTitles);
+  const historicalLeaderboards = usePointsStore((state) => state.historicalLeaderboards);
   const lastProcessedMonth = usePointsStore((state) => state.lastProcessedMonth);
 
   const userStats = useMemo(() => {
@@ -80,7 +81,7 @@ export default function Profile() {
 
   const monthlyPoints = useMemo(() => {
     return currentUser ? getUserMonthlyPoints(currentUser.id) : null;
-  }, [currentUser, getUserMonthlyPoints, pointsRecords]);
+  }, [currentUser, getUserMonthlyPoints, pointsRecords, historicalLeaderboards]);
 
   const myDrinkerTitles = useMemo(() => {
     return currentUser ? getDrinkerTitles(currentUser.id) : [];

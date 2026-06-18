@@ -66,6 +66,7 @@ export default function Leaderboard() {
   const getDrinkerTitles = usePointsStore((state) => state.getDrinkerTitles);
   const pointsRecords = usePointsStore((state) => state.pointsRecords);
   const drinkerTitles = usePointsStore((state) => state.drinkerTitles);
+  const historicalLeaderboards = usePointsStore((state) => state.historicalLeaderboards);
 
   const currentDate = useMemo(() => {
     const now = new Date();
@@ -74,12 +75,12 @@ export default function Leaderboard() {
 
   const leaderboard = useMemo(() => {
     return getMonthlyLeaderboard(currentDate);
-  }, [getMonthlyLeaderboard, currentDate, pointsRecords]);
+  }, [getMonthlyLeaderboard, currentDate, pointsRecords, historicalLeaderboards]);
 
   const myPoints = useMemo(() => {
     if (!currentUser) return null;
     return getUserMonthlyPoints(currentUser.id, currentDate);
-  }, [currentUser, getUserMonthlyPoints, currentDate, pointsRecords]);
+  }, [currentUser, getUserMonthlyPoints, currentDate, pointsRecords, historicalLeaderboards]);
 
   const myRank = useMemo(() => {
     if (!currentUser) return null;
