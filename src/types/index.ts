@@ -652,3 +652,58 @@ export const ENVIRONMENTAL_CONVERSION = {
   co2KgPerKg: 0.8,
   energyKwhPerKg: 1.5,
 };
+
+export type MessageType = "suggestion" | "complaint" | "thanks";
+export type MessageSortBy = "latest" | "popular" | "oldest";
+
+export interface MessageReply {
+  id: string;
+  messageId: string;
+  content: string;
+  adminId: string;
+  adminName: string;
+  createdAt: string;
+}
+
+export interface Message {
+  id: string;
+  type: MessageType;
+  content: string;
+  isAnonymous: boolean;
+  userId?: string;
+  userName?: string;
+  userAvatar?: string;
+  likes: string[];
+  isPinned: boolean;
+  createdAt: string;
+  reply?: MessageReply;
+}
+
+export interface WeeklyKeywordSummary {
+  id: string;
+  weekStart: string;
+  weekEnd: string;
+  keywords: { word: string; count: number }[];
+  topMessages: { messageId: string; content: string; likes: number }[];
+  totalMessages: number;
+  generatedAt: string;
+  viewedByAdmin: boolean;
+}
+
+export const messageTypeLabels: Record<MessageType, string> = {
+  suggestion: "建议",
+  complaint: "吐槽",
+  thanks: "感谢",
+};
+
+export const messageTypeColors: Record<MessageType, string> = {
+  suggestion: "#3B82F6",
+  complaint: "#EF4444",
+  thanks: "#10B981",
+};
+
+export const messageTypeIcons: Record<MessageType, string> = {
+  suggestion: "💡",
+  complaint: "😤",
+  thanks: "🙏",
+};

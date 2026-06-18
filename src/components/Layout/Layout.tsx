@@ -22,6 +22,7 @@ import { useCheckInStore } from "@/store/useCheckInStore";
 import { usePointsStore, setPointsUsersCache, setPointsMaterialsCache } from "@/store/usePointsStore";
 import { useSpecialDrinkStore } from "@/store/useSpecialDrinkStore";
 import { useRecyclingStore } from "@/store/useRecyclingStore";
+import { useMessageBoardStore } from "@/store/useMessageBoardStore";
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,6 +45,7 @@ export default function Layout() {
   const { initPoints, checkAndProcessMonthEnd } = usePointsStore();
   const { initSpecialDrinks, checkAndUpdateDaily } = useSpecialDrinkStore();
   const { initRecycling } = useRecyclingStore();
+  const { initMessageBoard, checkAndGenerateWeeklySummary } = useMessageBoardStore();
 
   useEffect(() => {
     initUsers();
@@ -64,6 +66,7 @@ export default function Layout() {
     initPoints();
     initSpecialDrinks();
     initRecycling();
+    initMessageBoard();
   }, []);
 
   useEffect(() => {
@@ -75,10 +78,11 @@ export default function Layout() {
       checkAndUpdateExpired();
       checkAndProcessMonthEnd();
       checkAndUpdateDaily();
+      checkAndGenerateWeeklySummary();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired, checkAndProcessMonthEnd, checkAndUpdateDaily]);
+  }, [checkVoteExpiry, checkAndSettleExpired, checkAndSettleGroupBuy, checkAndRotateDuty, checkAndUpdateExpired, checkAndProcessMonthEnd, checkAndUpdateDaily, checkAndGenerateWeeklySummary]);
 
   useEffect(() => {
     if (materials.length > 0) {

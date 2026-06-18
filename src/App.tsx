@@ -17,6 +17,7 @@ import Wishlist from "@/pages/Wishlist";
 import CheckIn from "@/pages/CheckIn";
 import Leaderboard from "@/pages/Leaderboard";
 import Recycling from "@/pages/Recycling";
+import MessageBoard from "@/pages/MessageBoard";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="restock-approval" element={<RestockApproval />} />
           <Route path="vote" element={<Vote />} />
           <Route path="wishlist" element={<Wishlist />} />
+          <Route path="message-board" element={<MessageBoard />} />
           <Route path="group-purchase" element={<GroupPurchase />} />
           <Route path="group-buy" element={<GroupBuy />} />
           <Route path="leaderboard" element={<Leaderboard />} />

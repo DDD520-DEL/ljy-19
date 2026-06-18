@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   Trophy,
   Leaf,
+  MessageSquare,
 } from "lucide-react";
 import { useRecyclingStore } from "@/store/useRecyclingStore";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ import { useRestockRequestStore } from "@/store/useRestockRequestStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useWishListStore } from "@/store/useWishListStore";
 import { useCheckInStore } from "@/store/useCheckInStore";
+import { useMessageBoardStore } from "@/store/useMessageBoardStore";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -39,13 +41,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { getWishesByStatus } = useWishListStore();
   const { hasCheckedInToday, getStreakDays } = useCheckInStore();
   const { hasRecordedThisWeek } = useRecyclingStore();
+  const { getUnviewedSummaryCount } = useMessageBoardStore();
   const pendingCount = getPendingCount();
   const pendingUserCount = getPendingUsers().length;
   const pendingWishCount = getWishesByStatus("pending").length;
+  const unviewedSummaryCount = getUnviewedSummaryCount();
   const isAdmin = currentUser?.role === "admin";
   const checkedInToday = currentUser ? hasCheckedInToday(currentUser.id) : false;
   const streakDays = currentUser ? getStreakDays(currentUser.id) : 0;
   const recyclingPending = !hasRecordedThisWeek();
+  const messageBoardBadge = isAdmin ? unviewedSummaryCount : 0;
 
   const navItems = [
     { path: "/", label: "首页", icon: Home },
@@ -58,6 +63,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: "/group-buy", label: "团购预约", icon: ShoppingCart },
     { path: "/vote", label: "我想喝什么", icon: Vote },
     { path: "/wishlist", label: "心愿单", icon: Star, badge: isAdmin ? pendingWishCount : 0 },
+    { path: "/message-board", label: "留言板", icon: MessageSquare, badge: messageBoardBadge },
     { path: "/leaderboard", label: "积分排行", icon: Trophy },
     { path: "/stats", label: "消耗统计", icon: BarChart3 },
     { path: "/duty", label: "采购轮值", icon: Calendar },
